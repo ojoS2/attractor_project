@@ -26,6 +26,7 @@ def test_lorenz_ode():
     assert abs(pde.lorenz_ode(x=10, y=10, z=10, sigma=.0, beta=.0, rho=.0)[0]) < 0.000001
     assert pde.lorenz_ode(x=10, y=10, z=10, sigma=.0, beta=.0, rho=.0)[1] == -110
     assert pde.lorenz_ode(x=10, y=10, z=10, sigma=.0, beta=.0, rho=.0)[2] == 100
+    
 
 #def test_generate_series_from_ODE():
 #    assert True
