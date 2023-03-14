@@ -1,0 +1,5 @@
+numpy
+tox
+black
+isort
+-e .
