@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.fft import rfft, irfft, rfftfreq
+from sklearn import metrics
 
 class parametric_diferential_equations():
     """Set of diferential equations in parametric form which
@@ -250,10 +251,10 @@ class time_series_generators():
         state = initial_state
         for i in range(transient):
             state = [iter_map(*state, *parameters)]
-        data = [state]
+        data = [state[0]]
         for i in range(data_length):
             state = [iter_map(*state, *parameters)]
-            data.append(state)
+            data.append(state[0])
         return data
 
 class spectral_analysis():
@@ -363,5 +364,303 @@ class spectral_analysis():
         aux = np.argmin(np.min(corr_values_abs))
         return new_th_list[aux], p_values[aux], corr_values[aux]
 
+class non_linear_methods():
+    """Non-linear methods applyied to time series analysis"""
+    def cobweb_diagram(imap, init_condit, params, iter=1000, xlim=[-3, 3],
+                       ylim=[-3,3]):
+        """Produces a cobweb diagram of the iterated map under the initial
+        condition and parameters
 
+        Parameters
+        ----------
+        imap : a iterated map object. The function which to use to produce
+        the diagram
 
+        init_condit : an integer. The initial condition of the system
+
+        params : an aray of floats. The parameters of the iterated map
+
+        iter : an integer. The number of iterations to consider
+            (Default value = 1000)
+        xlim : an array of floats. The limits of the x axis to plot
+            (Default value = [-3, 3])
+        ylim : an array of floats. The limits of the y axis to plot
+            (Default value = [-3, 3])
+
+        Returns
+        -------
+
+        
+        """
+        # plot the identity and the map
+        x = np.linspace(xlim[0], xlim[1], num=100)
+        y = [imap(i, *params) for i in x]
+        plt.plot(x, y, c='black')
+        plt.plot(x, x, c='blue')
+        plt.axvline(x=0, linewidth=0.5, color='gray')
+        plt.axhline(y=0, linewidth=0.5, color='gray')
+        plt.xlim(xlim[0], xlim[1])
+        plt.ylim(ylim[0], ylim[1])
+        # calculation and ploting of the cobweb
+        args = init_condit
+        y_0 = [imap(*args, *params)]
+        for i in range(iter):
+            if abs(y_0[0]) > ylim[1]:
+                print(f'{i} iteractions before getting out.')
+                plt.show()
+                break
+            plt.plot((args[0], args[0]), (args[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
+            plt.plot((args[0], y_0[0]), (y_0[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
+            args = y_0
+            y_0 = [imap(*args, *params)]
+        plt.show()
+
+    def cobweb_projection(imap, params, points= 1000, iter=10000,
+                          xlim=[-2, 2], ylim=[-2,2], kept=True):
+        """Produces the projection of the cobweb diagram of the
+        initial conditions that did not got out of the system
+        under the considered parameters.
+
+        Parameters
+        ----------
+        imap : a iterated map object. The function which to use to produce
+        the diagram
+
+        init_condit : an integer. The initial condition of the system
+
+        params : an aray of floats. The parameters of the iterated map
+
+        points : an integer. The number of initial conditions to consider
+            (Default value = 1000)
+        iter : an integer. The number of iterations to consider
+            (Default value = 10000)
+        xlim : an array of floats. The limits of the x axis to plot
+            (Default value = [-2, 2])
+        ylim : an array of floats. The limits of the y axis to plot
+            (Default value = [-2, 2])
+        kept : a boolean. If true shows the initial conditions that
+        remained. If False shows the initial conditions that scaped
+            (Default value = True)
+
+        Returns
+        -------
+
+        
+        """
+        remained = np.ones(points, dtype=bool)
+        step = (xlim[1] - xlim[0])/points
+        for i in range(points):
+          args = [xlim[0] + i*step]
+          y_0 = [imap(*args, *params)]
+          for _ in range(iter):
+               if abs(y_0[0]) > ylim[1]:
+                    remained[i] = False
+                    break
+               args = y_0
+               y_0 = [imap(*args, *params)]
+        init_condit = np.linspace(xlim[0], xlim[1], points)
+        #plt.hist(1.*np.array(remained))
+        #plt.show()
+        if kept:
+          return init_condit[remained]
+        else:
+          return init_condit[~remained]
+     
+    def orbit_diagram(imap, measuring_time, init_cond_range, params_range, 
+                      param_index, args_index, args,
+                      params, points=1000):
+        """Print the orbit diagram of the iterated map
+
+        Parameters
+        ----------
+        imap : a iterated map object. The function which to use to produce
+        the diagram
+
+        measuring_time : an integer. The number of iterations to consider
+
+        init_cond_range : an array of floats. The range of initial conditions
+        to initialize the system
+
+        params_range : an array of floats. The range of the parameter to
+        consider
+
+        param_index : an integer. The index of the parameter to vary
+
+        args_index : an integer. The index of the argument to vary
+
+        args : an aray of floats. The arguments of the iterated map
+        (including the varying one)
+
+        params : an aray of floats. The parameters of the iterated map
+        (including the varying one)
+
+        points : an integer. The number of iterations to decide
+            (Default value = 1000)
+
+        Returns
+        -------
+
+        
+        """
+        init_cond_list = np.linspace(params_range[0], params_range[1], num=points)
+        params_list = np.linspace(init_cond_range[0], init_cond_range[1], num=points)
+        aux_x = []
+        aux_y = []
+        for i in params_list:
+            params[param_index] = i   
+            for j in init_cond_list:
+                args[args_index] = j
+                for k in range(measuring_time): 
+                    args = [iterated_maps.quadratic_map(*args, *params)]
+                    if abs(args[args_index]) > 4:
+                        break
+                if abs(args[args_index]) < 4:
+                    aux_x.append(i)
+                    aux_y.append(args[args_index])
+        plt.scatter(aux_x, aux_y, marker='o', s=0.001, c='black')
+        plt.show()
+
+    def lorentz_map(Signal, lag=1):
+        """Print the orbit diagram of the iterated map
+
+        Parameters
+        ----------
+        imap : a iterated map object. The function which to use to produce
+        the diagram
+
+        Signal : an array of floats. The time series to plot the lorentz map
+
+        lag : an integer. The lag to consider consecutive measurements
+            (Default value = 1)
+
+        Returns
+        -------
+
+        
+        """ 
+        def is_max(vec):
+               aux_a = vec[1] - vec[0]
+               aux_p = vec[2] - vec[1]
+               if aux_a >= 0 and aux_p <= 0:
+                    return True
+               else:
+                    return False
+
+        if lag is None:
+            y_0 = []
+            for i in range(1, len(Signal) - 1):
+                if is_max([Signal[i-1], Signal[i], Signal[i+1]]):
+                    y_0.append(Signal[i])
+            z_0 = np.roll(y_0, -1)[:-1]
+            y_0 = y_0[:-1]
+        else:
+            y_0 = []
+            for i in range(lag, len(Signal) - lag):
+                if is_max([Signal[i-lag], Signal[i], Signal[i+lag]]):
+                    y_0.append(Signal[i])
+            z_0 = np.roll(y_0, -lag)[:-lag]
+            y_0 = y_0[:-lag]
+        plt.plot(y_0, y_0, c='red', linewidth=0.5, label='f(x)=x curve')
+        plt.scatter(y_0, z_0, marker='.', c='black', s=1, label='data')
+        plt.xlabel('f(x-lag)')
+        plt.ylabel('f(x)')
+        plt.title(f'Lorentz Map (lag={lag})')
+        plt.legend(loc='best')
+        plt.show()
+        return y_0, z_0
+
+    def minimum_info_tau(data, tau_max=100, graph=False):
+        """find the minimum lag interval which composition returns
+        the least information (correlation)
+
+        Parameters
+        ----------
+        data : an array of floats. The time series to find the lag of
+        minimum information
+
+        tau_max : an integer. The maximum lag to consider
+
+        graph : a bolean. If true plots the information score against the
+        lag
+            (Default value = False)
+
+        Returns
+        -------
+
+        
+        """ 
+        hist, bin_edges = np.histogram(data, bins=1000, density=True)
+        bin_indices = np.digitize(data, bin_edges)
+        data_discrete = [data[index] for index in bin_indices if index < len(data)]
+        mis = []
+        tau_to_use = None
+        for tau in range(1, tau_max):
+            unlagged = data_discrete[:-tau]
+            lagged = np.roll(data_discrete, -tau)[:-tau]
+            joint = np.vstack((unlagged, lagged))
+            mis.append(metrics.normalized_mutual_info_score(unlagged, lagged))
+            if tau_to_use is None and len(mis) > 1 and mis[-2] < mis[-1]: # return first local minima
+                tau_to_use = tau - 1
+        if graph:
+            # Print mutual information vs time delay
+            plt.plot(list(range(1, tau_max)), mis)
+            # Blocks until window is closed
+            plt.show()
+        return tau_to_use 
+
+    def attractor_reconstructor(data, tau_to_use=None, how_many_plots=1, scatter=False):
+        """find the minimum lag interval which composition returns
+        the least information (correlation)
+
+        Parameters
+        ----------
+        data : an array of floats. The time series to find the lag of
+        minimum information
+
+        tau_max : an integer. The maximum lag to consider
+
+        graph : a bolean. If true plots the information score against the
+        lag
+            (Default value = False)
+
+        Returns
+        -------
+
+        
+        """ 
+        if not tau_to_use:
+            tau_to_use = non_linear_methods.minimum_info_tau(data, tau_max=1000)
+            data_lag0 = np.array(data[:-tau_to_use]).flatten()
+            data_lag1 = np.array(np.roll(data, -tau_to_use)[:-tau_to_use]).flatten()
+            data_lag2 = np.array(np.roll(data, -2 * tau_to_use)[:-tau_to_use]).flatten()
+        # Plot time delay embedding
+        if how_many_plots == 1:
+           fig = plt.figure()
+           ax = fig.add_subplot(111, projection='3d')
+           if scatter:
+              ax.scatter(data_lag0, data_lag1, data_lag2,
+                              c='black', marker='.', s=0.5)    
+           else:
+              ax.plot(data_lag0, data_lag1, data_lag2,
+                      c='black')
+           ax.set_title(f'reconstructed attractor of lagg {tau_to_use}')
+           plt.show()
+        else:
+           fig, ax = plt.subplots(1, how_many_plots)
+           for index, i in enumerate(tau_to_use):
+               data_lag0 = np.array(data[:-i]).flatten()
+               data_lag1 = np.array(np.roll(data, -i)[:-i]).flatten()
+               data_lag2 = np.array(np.roll(data, -2 * i)[:-i]).flatten()
+               ax[index].scatter(data_lag0, data_lag1, data_lag2,
+               marker='.', c='black')
+               ax[index].set_title(f'reconstructed attractor (lagg {i})')
+           plt.show()
+        
+
+data_length = 10000
+iter_map = iterated_maps.quadratic_map#(x, A=1, B=0, C=0, n=1)
+initial_state = [0]
+Signal = time_series_generators.generate_series_from_iterated_maps(data_length, iter_map, initial_state,
+                                           transient=0, parameters=[1, 0, -1.5, 1])
+#x,y = non_linear_methods.lorentz_map(Signal, lag=1)
+tau_to_use = non_linear_methods.minimum_info_tau(Signal, tau_max=100, graph=True)
