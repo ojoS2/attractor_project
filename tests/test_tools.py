@@ -1,9 +1,13 @@
 import pytest
 import sys
+import numpy as np
+import matplotlib.pyplot as plt
+
 sys.path.insert(0, '/home/ricardo/Desktop/AttractorProject/attractor_project')
 from src.attractor_project.tools import parametric_diferential_equations as pde
 from src.attractor_project.tools import iterated_maps as im
 from src.attractor_project.tools import time_series_generators as tsg
+from src.attractor_project.tools import spectral_analysis as sa
 
 def test_pendulum_ode():
     assert abs(pde.pendulum_ode(x=0, y=0, b=0.25, c=5.0)[0]) < 0.000001
@@ -68,3 +72,140 @@ def test_generate_series_from_iterated_maps():
         assert abs(data_1[98+i][0] - results_1[i]) < 0.00001
         assert abs(data_3[98+i][0] - results_3[i]) < 0.00001
         assert abs(data_13[98+i][0] - results_13[i]) < 0.00001
+
+def fourier_discreet_transform():
+    SAMPLE_RATE = 1000
+    DURATION = 10
+    frequencies = [1, 5, 7, 13, 21]
+    amplitudes = [1, 2, 3, 4, 5]
+    def generate_sine_wave(amp, freq, sample_rate, duration):
+        x = np.linspace(0, duration, sample_rate * duration, endpoint=False)
+        frequencies = x * freq
+        y = amp*np.sin((2 * np.pi) * frequencies)
+        return x, y
+    def generate_mixed_signal(f, A, SAMPLE_RATE, DURATION):
+        y = []
+        x, aux = generate_sine_wave(amplitudes[0],
+                                    frequencies[0],
+                                    SAMPLE_RATE, DURATION)
+        y.append(aux)
+        for i in range(1, 5):
+            _, aux = generate_sine_wave(amplitudes[i],
+                                        frequencies[i],
+                                        SAMPLE_RATE, DURATION)
+            y.append(aux)
+        mix = y[0] + y[1] + y[2] + y[3] + y[4]
+        return x, mix
+    def get_maximuns(x, y):
+        z = []
+        w = []
+        for index, value in enumerate(y):
+            if value > 100:
+                z.append(x[index])
+                w.append(value)
+        return z, w
+
+    x, mix = generate_mixed_signal(f=frequencies, A=amplitudes,
+                                   SAMPLE_RATE=SAMPLE_RATE,
+                                   DURATION=DURATION)
+    x, y = sa.fourier_discreet_transform(data=mix,
+                                    sample_rate=SAMPLE_RATE,
+                                    duration=DURATION)
+    z, w = get_maximuns(x, y)
+    for i in range(len(z)):
+        assert abs(z[i] - frequencies[i]) < 0.0001
+    for i in range(1, len(z)):
+        assert w[i] > w[i-1]
+
+def test_fft_filter():
+    SAMPLE_RATE = 1000
+    DURATION = 10
+    frequencies = [1, 5, 7, 13, 21]
+    amplitudes = [1, 2, 3, 4, 5]
+    def generate_sine_wave(amp, freq, sample_rate, duration):
+        x = np.linspace(0, duration, sample_rate * duration, endpoint=False)
+        frequencies = x * freq
+        y = amp*np.sin((2 * np.pi) * frequencies)
+        return x, y
+    def generate_mixed_signal(f, A, SAMPLE_RATE, DURATION):
+        y = []
+        x, aux = generate_sine_wave(amplitudes[0],
+                                    frequencies[0],
+                                    SAMPLE_RATE, DURATION)
+        y.append(aux)
+        for i in range(1, 5):
+            _, aux = generate_sine_wave(amplitudes[i],
+                                        frequencies[i],
+                                        SAMPLE_RATE, DURATION)
+            y.append(aux)
+        mix = y[0] + y[1] + y[2] + y[3] + y[4]
+        return x, mix
+    def get_maximuns(x, y):
+        z = []
+        w = []
+        for index, value in enumerate(y):
+            if value > 100:
+                z.append(x[index])
+                w.append(value)
+        return z, w
+    x, mix = generate_mixed_signal(f=frequencies, A=amplitudes,
+                                   SAMPLE_RATE=SAMPLE_RATE,
+                                   DURATION=DURATION)
+    x, y = sa.fourier_discreet_transform(data=mix,
+                                    sample_rate=SAMPLE_RATE,
+                                    duration=DURATION)
+    filter = [0.1, 0.25, 0.45, 0.65, 0.85]
+    for i in filter:
+        new_y = sa.fft_filter(percentual=i, spectrum=y)
+        z, w = get_maximuns(x, new_y)
+        for j in range(len(z)):
+            assert abs(z[j] - frequencies[5 - len(z) + j]) < 0.0001
+
+def test_filtered_signal():
+    SAMPLE_RATE = 1000
+    DURATION = 10
+    frequencies = [1, 5, 7, 13, 21]
+    amplitudes = [1, 2, 3, 4, 5]
+    def generate_sine_wave(amp, freq, sample_rate, duration):
+        x = np.linspace(0, duration, sample_rate * duration, endpoint=False)
+        frequencies = x * freq
+        y = amp*np.sin((2 * np.pi) * frequencies)
+        return x, y
+    def generate_mixed_signal(f, A, SAMPLE_RATE, DURATION):
+        y = []
+        x, aux = generate_sine_wave(amplitudes[0],
+                                    frequencies[0],
+                                    SAMPLE_RATE, DURATION)
+        y.append(aux)
+        for i in range(1, 5):
+            _, aux = generate_sine_wave(amplitudes[i],
+                                        frequencies[i],
+                                        SAMPLE_RATE, DURATION)
+            y.append(aux)
+        mix = y[0] + y[1] + y[2] + y[3] + y[4]
+        return x, mix
+    def get_maximuns(x, y):
+        z = []
+        w = []
+        for index, value in enumerate(y):
+            if value > 100:
+                z.append(x[index])
+                w.append(value)
+        return z, w
+    x, mix = generate_mixed_signal(f=frequencies, A=amplitudes,
+                                   SAMPLE_RATE=SAMPLE_RATE,
+                                   DURATION=DURATION)
+    x, y = sa.fourier_discreet_transform(data=mix,
+                                    sample_rate=SAMPLE_RATE,
+                                    duration=DURATION)
+    filter = [0.1, 0.25, 0.45, 0.65, 0.85]
+    for i in filter:
+        new_y, new_series = sa.filtered_signal(i, y)
+        z, w = get_maximuns(x, new_y)
+        _, new_new_y = sa.fourier_discreet_transform(data=new_series,
+                                    sample_rate=SAMPLE_RATE,
+                                    duration=DURATION)
+        new_z, new_w = get_maximuns(x, new_new_y)
+        for j in range(len(z)):
+            assert abs(z[j] - new_z[j]) < 0.0001
+        

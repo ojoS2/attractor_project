@@ -6,7 +6,7 @@ and non-linear dynamics tools"""
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-from scipy.fft import rfft, rfftfreq
+from scipy.fft import rfft, irfft, rfftfreq
 
 class parametric_diferential_equations():
     """Set of diferential equations in parametric form which
@@ -276,7 +276,7 @@ class spectral_analysis():
         return rfftfreq(duration*sample_rate,
                         1/sample_rate), np.abs(rfft(data))
     
-    def fft_filter(percentual, data):
+    def fft_filter(percentual, spectrum):
         """ Generte a time series from the raw data where frequencies
         whit low enough amplitude are set to zero (filtered signal)
         ----------
@@ -290,15 +290,15 @@ class spectral_analysis():
         An array of floats. The spectrum resulting of the filtering
         """
         # taking the absolute of the signal
-        data_abs = np.abs(data)
+        data_abs = np.abs(spectrum)
         # defining the cutoff
-        th = percentual*(data_abs.max())
+        th = percentual*(np.max(data_abs))
         data_tof = data_abs.copy()
         # filtering
         data_tof[data_tof <= th] = 0
         return data_tof
     
-    def filter_signal(perc, data):
+    def filtered_signal(perc, data):
         """ Generte a filtered signal
         ----------
         data : an array of floats. The signal to filter
@@ -312,7 +312,7 @@ class spectral_analysis():
         filtered time series.
         """
         f_s = spectral_analysis.fft_filter(perc, data)
-        return f_s, np.real(np.fft.ifft(f_s))
+        return f_s, irfft(f_s)
 
     def best_scale(data, inf=0.001, sup=0.3, p_threshold=0.005,
                    grafics=False):
@@ -363,20 +363,5 @@ class spectral_analysis():
         aux = np.argmin(np.min(corr_values_abs))
         return new_th_list[aux], p_values[aux], corr_values[aux]
 
-SAMPLE_RATE = 1000
-DURATION = 10
-def generate_sine_wave(freq, sample_rate, duration):
-    x = np.linspace(0, duration, sample_rate * duration, endpoint=False)
-    frequencies = x * freq
-    y = np.sin((2 * np.pi) * frequencies)
-    return x, y
-x_1, y_1 = generate_sine_wave(10, SAMPLE_RATE, DURATION)
-x_2, y_2 = generate_sine_wave(5, SAMPLE_RATE, DURATION)
-mix = y_1 + 0.5*y_2
 
-xf, yf = spectral_analysis.fourier_discreet_transform(mix,
-                                                      SAMPLE_RATE,
-                                                      DURATION)
 
-plt.plot(xf[0:200], np.abs(yf[0:200]))
-plt.show()
