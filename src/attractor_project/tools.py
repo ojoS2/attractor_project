@@ -1,4 +1,4 @@
-""" Main tools used in this package. Here one will find tools
+"""Main tools used in this package. Here one will find tools
 related to build time series from known diferential equations
 or iterated maps as well as spectral decomposition tools
 and non-linear dynamics tools"""
@@ -274,7 +274,7 @@ class spectral_analysis():
         A tuple of two arrays of floats. The array of frequencies and
         the Fourier spectrum of the data
         """
-        return rfftfreq(duration*sample_rate,
+        return rfftfreq(int(duration*sample_rate),
                         1/sample_rate), np.abs(rfft(data))
     
     def fft_filter(percentual, spectrum):
@@ -299,10 +299,10 @@ class spectral_analysis():
         data_tof[data_tof <= th] = 0
         return data_tof
     
-    def filtered_signal(perc, data):
+    def filtered_signal(perc, spectrum):
         """ Generte a filtered signal
         ----------
-        data : an array of floats. The signal to filter
+        spectrum : an array of floats. The signal to filter
      
         percentual : a float. The percentual from the amplitude of the
         top frequency which to cut the other frequencies
@@ -312,10 +312,10 @@ class spectral_analysis():
         A tuple of two arrays of floats. The filtered spectrum and the
         filtered time series.
         """
-        f_s = spectral_analysis.fft_filter(perc, data)
+        f_s = spectral_analysis.fft_filter(perc, spectrum)
         return f_s, irfft(f_s)
 
-    def best_scale(data, inf=0.001, sup=0.3, p_threshold=0.005,
+    def best_scale(data, inf=0.001, sup=0.5, p_threshold=0.005,
                    grafics=False):
         """ Among many percentual values, it produces and filters the
         signals and compare the correlation and p-value and considers
@@ -342,26 +342,37 @@ class spectral_analysis():
         p_values = []
         corr_values = []
         new_th_list = []
+        plot_p_values = []
+        plot_corr_values = []
+        plot_new_th_list = []
         for t in th_list:
-            filt_signal = spectral_analysis.filter_signal(t, data)
+            filt_signal, _ = spectral_analysis.filtered_signal(t, data)
             res = stats.spearmanr(data, data-filt_signal)
+            plot_p_values.append(res.pvalue)
+            plot_corr_values.append(res.correlation)
+            plot_new_th_list.append(t)
             if abs(res.pvalue) < p_threshold:
                 p_values.append(res.pvalue)
                 corr_values.append(res.correlation)
                 new_th_list.append(t)
         if grafics:
-            plt.figure(figsize=(20,10))
-            plt.subplot(1,2,1)
-            plt.scatter(new_th_list,corr_values,s=2,color='navy')
-            plt.ylabel('Correlation Value')
-            plt.xlabel('Threshold Value')
-            plt.subplot(1,2,2)
-            plt.scatter(new_th_list,p_values,s=2,color='navy')
-            plt.ylabel('P-Value')
-            plt.xlabel('Threshold Value')
+            fig, ax1 = plt.subplots(figsize=(20,10))
+            plt.axvline(new_th_list[0], 0, 1, c='black',
+                        linestyle=':', alpha = 0.8)
+            plt.annotate('threshold', xy=(new_th_list[0], 1),
+                          xytext=(6, -100), textcoords='offset points',
+                          rotation=90, va='bottom', ha='center')
+            ax1.scatter(plot_new_th_list, plot_corr_values,s=1,color='navy')
+            ax1.set_ylabel('Correlation Value')
+            ax1.tick_params(axis='y', labelcolor='navy')
+            ax1.set_xlabel('Scale')
+            ax2 = ax1.twinx()   
+            ax2.scatter(plot_new_th_list, plot_p_values,s=1,color='red')
+            ax2.set_ylabel('P-Value')
+            ax2.tick_params(axis='y', labelcolor='red')
             plt.show()
         corr_values_abs = [abs(x) for x in corr_values]
-        aux = np.argmin(np.min(corr_values_abs))
+        aux = corr_values_abs.index((np.min(corr_values_abs)))
         return new_th_list[aux], p_values[aux], corr_values[aux]
 
 class non_linear_methods():
@@ -608,21 +619,31 @@ class non_linear_methods():
             plt.show()
         return tau_to_use 
 
-    def attractor_reconstructor(data, tau_to_use=None, how_many_plots=1, scatter=False):
-        """find the minimum lag interval which composition returns
-        the least information (correlation)
+    def attractor_reconstructor(data, tau_to_use=None, how_many_plots=1,
+                                scatter=False):
+        """Recostruct the attractor of a time series using the 
+        method of lags
 
         Parameters
         ----------
-        data : an array of floats. The time series to find the lag of
-        minimum information
+        data : an array of floats. The time series to reconstruct
+        the attractor
 
-        tau_max : an integer. The maximum lag to consider
+        tau_to_use : an integer, None or an array of integers. The lag to use.
+        If none it will be decided based on the
+        non_linear_methods.minimum_info_tau function. The array option must be
+        used with how_many_plots set to how_many_plots = len(tau_to_use)
+        (Default value = None)
 
-        graph : a bolean. If true plots the information score against the
-        lag
-            (Default value = False)
+        how_many_plots : an integer. Controls what to plot. If one, only the
+        chosen tau_to_use related reconstructor will be used. Otherwise, all
+        the elements in tau_to_use array will generate a graph ploted in the
+        same plot
+        (Default value = 1)
 
+        scatter : a boolean. If True, the function generates scatter plots.
+         It generates line plots othewise.
+        (Default value = False)
         Returns
         -------
 
@@ -639,7 +660,7 @@ class non_linear_methods():
            ax = fig.add_subplot(111, projection='3d')
            if scatter:
               ax.scatter(data_lag0, data_lag1, data_lag2,
-                              c='black', marker='.', s=0.5)    
+                              c='black', marker='.', s=1)    
            else:
               ax.plot(data_lag0, data_lag1, data_lag2,
                       c='black')
@@ -655,12 +676,3 @@ class non_linear_methods():
                marker='.', c='black')
                ax[index].set_title(f'reconstructed attractor (lagg {i})')
            plt.show()
-        
-
-data_length = 10000
-iter_map = iterated_maps.quadratic_map#(x, A=1, B=0, C=0, n=1)
-initial_state = [0]
-Signal = time_series_generators.generate_series_from_iterated_maps(data_length, iter_map, initial_state,
-                                           transient=0, parameters=[1, 0, -1.5, 1])
-#x,y = non_linear_methods.lorentz_map(Signal, lag=1)
-tau_to_use = non_linear_methods.minimum_info_tau(Signal, tau_max=100, graph=True)
