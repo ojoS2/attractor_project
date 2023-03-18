@@ -5,9 +5,6 @@ import datapackage
 import seaborn as sns
 import matplotlib.pyplot as plt
 sys.path.insert(0, '/home/ricardo/Desktop/AttractorProject/attractor_project')
-from src.attractor_project.tools import parametric_diferential_equations as pde
-from src.attractor_project.tools import iterated_maps as im
-from src.attractor_project.tools import time_series_generators as tsg
 from src.attractor_project.tools import spectral_analysis as sa
 from src.attractor_project.tools import non_linear_methods as nlm
 from datetime import timedelta
@@ -156,16 +153,17 @@ def plot_peaks_regression(peaks_location):
     ax[1].legend(loc='best')
     plt.show()
 
-def plot_frequencies_spectrum_pieces(data_GI, data_GC, scope, label, save=None):
+def plot_frequencies_spectrum_pieces(data_GI, data_GC, scope, label,
+                                     duration, sample_rate, save=None):
+    #df.loc[int(len(df) - 1), 'time_index']
+    #sample_rate=1/40
     x, y_GI = sa.fourier_discreet_transform(data_GI,
-                                        sample_rate=1/40,
-                                        duration=df.loc[int(len(df) - 1),
-                                                        'time_index'])
+                                        sample_rate=sample_rate,
+                                        duration=duration)
 
     _, y_GC = sa.fourier_discreet_transform(data_GC,
-                                        sample_rate=1/40,
-                                        duration=df.loc[int(len(df) - 1),
-                                                        'time_index'])
+                                            sample_rate=sample_rate,
+                                            duration=duration)
     plt.axvline(1./365, np.min(y_GC), np.max(y_GC), c='red', linestyle=':',
                 alpha = 0.8 )
     plt.annotate('1 year frequency',
@@ -230,36 +228,40 @@ def plot_frequencies_spectrum_pieces(data_GI, data_GC, scope, label, save=None):
         plt.savefig('examples/figures/'+ save + '.png')
     plt.show()
 
-pd.options.display.max_columns = None #print all columns    
-pd.options.display.max_rows = None #print all rows  
+def load_data():
+    temp = organizing_and_preprocessing()
+    scale=40
+    df = time_series_interval_processing(temp, days=scale)
+    df = temperature_data_processing(df)
+    temperature_regression(df, save=None)
+    stationary_signal_plot(df, save=None)
+    data_GI = list(df['norm_results_GISTEMP'].values)
+    data_GC = list(df['norm_results_GCAG'].values)
+    return data_GI, data_GC
 
-temp = organizing_and_preprocessing()
-scale=40
-df = time_series_interval_processing(temp, days=scale)
-df = temperature_data_processing(df)
-temperature_regression(df, save=None)
-stationary_signal_plot(df, save=None)
-data_GI = list(df['norm_results_GISTEMP'].values)
-data_GC = list(df['norm_results_GCAG'].values)
+def plot_all(data_GI, data_GC):
 
-plot_frequencies_spectrum_pieces(data_GI, data_GC,
+    plot_frequencies_spectrum_pieces(data_GI, data_GC,
                                  scope=[0, 1], label='',
                                  save=None)
+    perc, p_val, corr = sa.best_scale(data_GI, inf=0.001, sup=0.5, p_threshold=0.005,
+                    grafics=True)
+    print(perc, p_val, corr)
+    perc, p_val, corr = sa.best_scale(data_GC, inf=0.001, sup=0.5, p_threshold=0.005,
+                    grafics=True)
+    print(perc, p_val, corr)
+    nlm.lorentz_map(data_GI)
+    nlm.lorentz_map(data_GC)
+    nlm.attractor_reconstructor(data_GI, tau_to_use=None, how_many_plots=1,
+                                    scatter=True)
+    nlm.attractor_reconstructor(data_GC, tau_to_use=None, how_many_plots=1,
+                                    scatter=True)
+    
+pd.options.display.max_columns = None #print all columns    
+pd.options.display.max_rows = None #print all rows  
+data_GI, data_GC = load_data()
+plot_all(data_GI, data_GC)
+# build a prediction
 
 
-perc, p_val, corr = sa.best_scale(data_GI, inf=0.001, sup=0.5, p_threshold=0.005,
-                   grafics=True)
-print(perc, p_val, corr)
-perc, p_val, corr = sa.best_scale(data_GC, inf=0.001, sup=0.5, p_threshold=0.005,
-                   grafics=True)
-print(perc, p_val, corr)
-
-nlm.lorentz_map(data_GI)
-nlm.lorentz_map(data_GC)
-
-nlm.attractor_reconstructor(data_GI, tau_to_use=None, how_many_plots=1,
-                                scatter=True)
-
-nlm.attractor_reconstructor(data_GC, tau_to_use=None, how_many_plots=1,
-                                scatter=True)
 

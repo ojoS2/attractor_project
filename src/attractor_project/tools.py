@@ -345,9 +345,11 @@ class spectral_analysis():
         plot_p_values = []
         plot_corr_values = []
         plot_new_th_list = []
+        _, spectrum = spectral_analysis.\
+        fourier_discreet_transform(data, sample_rate=1, duration=len(data))
         for t in th_list:
-            filt_signal, _ = spectral_analysis.filtered_signal(t, data)
-            res = stats.spearmanr(data, data-filt_signal)
+            filt_signal, _ = spectral_analysis.filtered_signal(t, spectrum)
+            res = stats.spearmanr(spectrum, filt_signal)
             plot_p_values.append(res.pvalue)
             plot_corr_values.append(res.correlation)
             plot_new_th_list.append(t)
@@ -531,7 +533,7 @@ class non_linear_methods():
         plt.scatter(aux_x, aux_y, marker='o', s=0.001, c='black')
         plt.show()
 
-    def lorentz_map(Signal, lag=1):
+    def lorentz_map(Signal, lag=1, plot=True):
         """Print the orbit diagram of the iterated map
 
         Parameters
@@ -542,8 +544,11 @@ class non_linear_methods():
         Signal : an array of floats. The time series to plot the lorentz map
 
         lag : an integer. The lag to consider consecutive measurements
-            (Default value = 1)
+        (Default value = 1)
 
+        plot : a boolean. Wheter to plot the lorenzt map here or just return
+        the data
+        (Default value = True)  
         Returns
         -------
 
@@ -564,20 +569,23 @@ class non_linear_methods():
                     y_0.append(Signal[i])
             z_0 = np.roll(y_0, -1)[:-1]
             y_0 = y_0[:-1]
+            aux = 'Max to max'
         else:
+            aux = str(lag)
             y_0 = []
             for i in range(lag, len(Signal) - lag):
                 if is_max([Signal[i-lag], Signal[i], Signal[i+lag]]):
                     y_0.append(Signal[i])
             z_0 = np.roll(y_0, -lag)[:-lag]
             y_0 = y_0[:-lag]
-        plt.plot(y_0, y_0, c='red', linewidth=0.5, label='f(x)=x curve')
-        plt.scatter(y_0, z_0, marker='.', c='black', s=1, label='data')
-        plt.xlabel('f(x-lag)')
-        plt.ylabel('f(x)')
-        plt.title(f'Lorentz Map (lag={lag})')
-        plt.legend(loc='best')
-        plt.show()
+        if plot:
+          plt.plot(y_0, y_0, c='red', linewidth=0.5, label='f(x)=x curve')
+          plt.scatter(y_0, z_0, marker='.', c='black', s=1, label='data')
+          plt.xlabel('f(x-lag)')
+          plt.ylabel('f(x)')
+          plt.title(f'Lorentz Map (lag = {aux})')
+          plt.legend(loc='best')
+          plt.show()
         return y_0, z_0
 
     def minimum_info_tau(data, tau_max=100, graph=False):
@@ -620,7 +628,7 @@ class non_linear_methods():
         return tau_to_use 
 
     def attractor_reconstructor(data, tau_to_use=None, how_many_plots=1,
-                                scatter=False):
+                                scatter=False, plot=True):
         """Recostruct the attractor of a time series using the 
         method of lags
 
@@ -644,6 +652,11 @@ class non_linear_methods():
         scatter : a boolean. If True, the function generates scatter plots.
          It generates line plots othewise.
         (Default value = False)
+
+        plot : a boolean. Wheter to plot the lorenzt map here or just return
+        the data
+        (Default value = True)  
+        
         Returns
         -------
 
@@ -654,25 +667,27 @@ class non_linear_methods():
             data_lag0 = np.array(data[:-tau_to_use]).flatten()
             data_lag1 = np.array(np.roll(data, -tau_to_use)[:-tau_to_use]).flatten()
             data_lag2 = np.array(np.roll(data, -2 * tau_to_use)[:-tau_to_use]).flatten()
-        # Plot time delay embedding
-        if how_many_plots == 1:
-           fig = plt.figure()
-           ax = fig.add_subplot(111, projection='3d')
-           if scatter:
-              ax.scatter(data_lag0, data_lag1, data_lag2,
-                              c='black', marker='.', s=1)    
-           else:
-              ax.plot(data_lag0, data_lag1, data_lag2,
-                      c='black')
-           ax.set_title(f'reconstructed attractor of lagg {tau_to_use}')
-           plt.show()
-        else:
-           fig, ax = plt.subplots(1, how_many_plots)
-           for index, i in enumerate(tau_to_use):
-               data_lag0 = np.array(data[:-i]).flatten()
-               data_lag1 = np.array(np.roll(data, -i)[:-i]).flatten()
-               data_lag2 = np.array(np.roll(data, -2 * i)[:-i]).flatten()
-               ax[index].scatter(data_lag0, data_lag1, data_lag2,
-               marker='.', c='black')
-               ax[index].set_title(f'reconstructed attractor (lagg {i})')
-           plt.show()
+        if plot:
+          # Plot time delay embedding
+          if how_many_plots == 1:
+               fig = plt.figure()
+               ax = fig.add_subplot(111, projection='3d')
+               if scatter:
+                    ax.scatter(data_lag0, data_lag1, data_lag2,
+                                   c='black', marker='.', s=1)    
+               else:
+                    ax.plot(data_lag0, data_lag1, data_lag2,
+                         c='black')
+               ax.set_title(f'reconstructed attractor of lag {tau_to_use}')
+               plt.show()
+          else:
+               fig, ax = plt.subplots(1, how_many_plots)
+               for index, i in enumerate(tau_to_use):
+                    data_lag0 = np.array(data[:-i]).flatten()
+                    data_lag1 = np.array(np.roll(data, -i)[:-i]).flatten()
+                    data_lag2 = np.array(np.roll(data, -2 * i)[:-i]).flatten()
+                    ax[index].scatter(data_lag0, data_lag1, data_lag2,
+                    marker='.', c='black')
+                    ax[index].set_title(f'reconstructed attractor (lagg {i})')
+               plt.show()
+        return data_lag0, data_lag1, data_lag2       
