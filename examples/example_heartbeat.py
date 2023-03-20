@@ -264,3 +264,4 @@ class PhysioNet():
 TimeSeries, features = PhysioNet.load_data()
 PhysioNet.age_gender_exploration()
 PhysioNet.plot_frequencies(TimeSeries, features)
+# predict the gender of the other distributions
