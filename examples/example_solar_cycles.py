@@ -30,7 +30,7 @@ def import_a_file_from_kaggle_as_dataframe(data_identifyer,
     except zipfile.BadZipFile as error:
         print(error)
     df = pd.read_csv(temp_directory + "/" + file_name)
-    os.system('rm -R' + temp_directory)
+    os.system('rm -R ' + temp_directory)
     return df
 
 def column_datetime_to_float(df, initial_value, conversion_unity,
@@ -45,7 +45,7 @@ def plot_time_interval_occurencies(df, column):
     aux2 = np.roll(aux1, 1)
     temp = [i - j for i, j in zip(aux1, aux2)]
     temp = temp[1:-1]
-    plt.hist(temp, density=True, bins=4)
+    plt.hist(temp, density=True, bins=len(list(set(temp))))
     plt.xticks(list(set(temp)), [str(i) for i in list(set(temp))], rotation=90)
     plt.xlabel('occurrencies')
     plt.ylabel('density')
@@ -54,7 +54,7 @@ def plot_time_interval_occurencies(df, column):
                         top=0.8, wspace=0.7, hspace=0.7)
     plt.show()
 
-def normalize_time_intervals(df, date_column, value_column):
+def normalize_time_intervals(df, date_column, value_column, period=31):
     init = df.loc[0, date_column]
     end = df.loc[len(df) - 1, date_column]
     aux = init
@@ -62,7 +62,7 @@ def normalize_time_intervals(df, date_column, value_column):
     value = []
     while aux < end:
         bot = aux
-        top = aux + timedelta(days=31)
+        top = aux + timedelta(days=period)
         value.append(df[df[date_column].\
                     between(bot, top)]\
                     [value_column].mean())
@@ -137,6 +137,7 @@ def recursive_neural_network_lr_optimization(train_set, metrics='mae'):
     plt.xlabel("Learing Rate")
     plt.ylabel("Loss")
     plt.show()
+    return model, history
 
 def plot_optimized_model_progress(train_set, lr):
     tf.keras.backend.clear_session()
@@ -228,113 +229,157 @@ def model_forecast(model, series, window_size):
     forecast = model.predict(ds)
     return forecast
 
-
 def find_best(series_list, test_values, window_size):
 
     test = test_values[window_size-1:-window_size]
-    plt.plot(test, label='validation set', linestyle='--')
+    #plt.plot(test, label='validation set', linestyle='--')
     predict = np.roll(series_list[:, 0, 0], 0)[window_size:]
     aux = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
     index = 0
     for i in range(1, 64):
         predict = np.roll(series_list[:, i, 0], i)[window_size:]
-        print('Mean Absolute Error (MAE): ',
+        print('Mean Absolute Error (MAE): ', i,
               tf.keras.metrics.mean_absolute_error(test, predict).numpy())   
         temp = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
         if temp < aux:
             aux = temp
             index = i
     predict = np.roll(series_list[:, index, 0], index)[window_size:]
-    plt.plot(predict)
-    plt.show()
+    #plt.plot(predict)
+    #plt.show()
     return predict
 
+def load_single_file_from_zip(temp_directory, file_name):
+    try:
+        with zipfile.ZipFile(temp_directory + "/" + file_name,
+                                mode="r") as archive:
+            archive.extract(file_name,
+                            path=temp_directory + "/")
+    except zipfile.BadZipFile as errors:
+        print(errors)
+    df = pd.read_csv(temp_directory + "/" + file_name)
+    return df 
 
+def sort_and_convert_datetime_columns(df, column_to_sort='Date', new_column_name='float_time'):
+    df[column_to_sort] = pd.to_datetime(df[column_to_sort])
+    df.sort_values(by=column_to_sort, ascending=True, inplace=True)
+    aux=lambda date: (date - df[column_to_sort][0])/pd.Timedelta(1, 'd')
+    df[new_column_name] = (df[column_to_sort].apply(aux)).astype('float')
+    return df
+
+def plot_frequency_spectrum(series, period, duration, plot=False):
+    frequencies, amplitudes = sa.fourier_discreet_transform(data=series - np.mean(series),
+                                                            sample_rate=1/period,
+                                                            duration=duration)
+    if plot:
+        plt.plot(frequencies, amplitudes)
+        plt.show()
+    return frequencies, amplitudes
+
+def spectral_analysis():
+    time = list(df['float_time'].values)
+    series = list(df['values'].values - np.mean(list(df['values'].values)))
+    duration = (time[-1] - time[0])
+    plot_series(time, series, format="-", start=0, end=None, label=None)
+    frequencies, amplitudes = plot_frequency_spectrum(series=series,
+                                                      period=period_to_normalize,
+                                                      duration=duration,
+                                                      plot=False)
+    scale, p_value, corr = sa.best_scale(data=series, inf=0.001, sup=0.5, p_threshold=0.005,
+                                         grafics=True)
+    filtered_spectrum, filtered_signal = sa.filtered_signal(0.0, amplitudes)
+    plt.plot(series)
+    plt.plot(filtered_signal)
+    plt.show()
+    plt.plot(amplitudes)
+    plt.plot(filtered_spectrum)
+    plt.show()
+
+def plot_dataspliting(time_train, values_train, 
+                      time_test, values_test,
+                      series, time, window_size):
+    plt.figure(figsize=(15, 9))
+    plt.title("Train/Test Split")
+    plot_series(time_train, values_train, label="training set", show=False)
+    plot_series(time_test, values_test, label="validation set", show=False)
+    plt.show()
+    plot_windows(series, time, window_size)
+
+def experiments(model, values_test, window_size):
+    list_of_best_fit = []
+    for i in range(10):
+        rnn_forecast = model_forecast(model,
+                                      np.array(values_test)[..., np.newaxis],
+                                      window_size)
+        list_of_best_fit.append(find_best(series_list=rnn_forecast, test_values=values_test, window_size=window_size))
+    return list_of_best_fit
 
 data_identifyer = 'robervalt/sunspots'
 temp_directory = "examples/solar_cycles_data"
+checkpoint_directory = "examples/models_checkpoint"
 file_name = "Sunspots.csv"
-#df = import_a_file_from_kaggle_as_dataframe(data_identifyer,
-#                                            temp_directory, file_name)
+column_to_sort='Date'
+period_to_normalize = 31
+df = import_a_file_from_kaggle_as_dataframe(data_identifyer,
+                                            temp_directory, file_name)
 
-try:
-    with zipfile.ZipFile(temp_directory + "/" + file_name,
-                            mode="r") as archive:
-        archive.extract(file_name,
-                        path=temp_directory + "/")
-except zipfile.BadZipFile as errors:
-    print(errors)
-
-df = pd.read_csv(temp_directory + "/" + file_name)
-df.sort_values(by='Date', ascending=True, inplace=True)
-df['Date'] = pd.to_datetime(df['Date'])
-
-#df = column_datetime_to_float(df,
-#                              initial_value = df['Date'][0],
-#                              conversion_unity='d',
-#                              date_column='Date')
-#plot_time_interval_occurencies(df, column='float_time')
-
-
+df = column_datetime_to_float(df,
+                              initial_value = df['Date'][0],
+                              conversion_unity='d',
+                              date_column='Date')
+df = load_single_file_from_zip(temp_directory, file_name)
+df = sort_and_convert_datetime_columns(df, column_to_sort='Date')
+plot_time_interval_occurencies(df, column='float_time')
+# the intervals need normalization
 df = normalize_time_intervals(df,
                               date_column='Date',
-                              value_column="Monthly Mean Total Sunspot Number")
+                              value_column="Monthly Mean Total Sunspot Number",
+                              period=period_to_normalize)
 df = column_datetime_to_float(df,
                               initial_value = df['date'][0],
                               conversion_unity='d',
                               date_column='date')
-
+plot_time_interval_occurencies(df, column='float_time')
 time = list(df['float_time'].values)
 series = list(df['values'].values)
-#plot_series(time, series, format="-", start=0, end=None, label=None)
-#nlm.attractor_reconstructor(series, tau_to_use=None, how_many_plots=1,
-#                            scatter=False, plot=True)
-#nlm.lorentz_map(series, lag=130, plot=True)
 #spliting the data
 split = int(0.75*len(time))
-time_train, values_train = time[:split], series[:split]
-time_test, values_test = time[split:], series[split:]
+time_train, values_train = np.array(time[:split]), np.array(series[:split])
+time_test, values_test = np.array(time[split:]), np.array(series[split:])
 # the window size is important for training results
-window_size = 30
-batch_size = 32
+window_size = 100
+batch_size = 120
 shuffle_buffer_size = 1000
-#plt.figure(figsize=(15, 9))
-#plt.title("Train/Test Split")
-#plot_series(time_train, values_train, label="training set", show=False)
-#plot_series(time_test, values_test, label="validation set", show=False)
-#plt.show()
-#plot_windows(series, time, window_size)
+plot_dataspliting(time_train, values_train, 
+                  time_test, values_test,
+                  series, time, window_size)
 
 
 tf.keras.backend.clear_session()
 tf.random.set_seed(51)
 np.random.seed(51)
-window_size = 64
+window_size = 100
 batch_size = 256
 train_set = windowed_dataset(values_train, window_size,
                              batch_size, shuffle_buffer_size)
+model, history = recursive_neural_network_lr_optimization(train_set)
+model = plot_optimized_model_progress(train_set, lr=1e-5)
+print('Model mounted')
+#load_model()
 
-#recursive_neural_network_lr_optimization(train_set)
-#model = plot_optimized_model_progress(train_set, lr=1e-4)
-#print('Model mounted')
-
-
-
-
-model = create_model()
-checkpoint_path = "examples/solar_cycles_data/cp.ckpt"
-checkpoint_dir = os.path.dirname(checkpoint_path)
-cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
-                                                 save_weights_only=True,
-                                                 verbose=1)
-model.load_weights(checkpoint_path)
 
 rnn_forecast = model_forecast(model,
                               np.array(values_test)[..., np.newaxis],
                               window_size)
 
 print(rnn_forecast.shape)
-print(rnn_forecast.shape[1])
 
-find_best(series_list=rnn_forecast, test_values=values_test, window_size=window_size)
-#print('Mean Absolute Error (MAE): ',tf.keras.metrics.mean_absolute_error(values_test, rnn_forecast).numpy())
+
+list_of_best_fit = experiments(model, values_test, window_size)
+for i in list_of_best_fit:
+    print(i)
+    plt.plot(i)
+plt.plot(values_test[window_size-1:-window_size], label='validation set', linestyle='--')
+plt.show()
+
+print('Mean Absolute Error (MAE): ',tf.keras.metrics.mean_absolute_error(values_test, rnn_forecast).numpy())

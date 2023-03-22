@@ -5,9 +5,13 @@ and non-linear dynamics tools"""
 
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import os
 from scipy import stats
 from scipy.fft import rfft, irfft, rfftfreq
 from sklearn import metrics
+from tensorflow import keras
+
 
 class parametric_diferential_equations():
     """Set of diferential equations in parametric form which
@@ -691,3 +695,163 @@ class non_linear_methods():
                     ax[index].set_title(f'reconstructed attractor (lagg {i})')
                plt.show()
         return data_lag0, data_lag1, data_lag2       
+
+class series_model_keras():
+
+    def windowed_dataset(series, window_size, batch_size, shuffle_buffer):
+        series = tf.expand_dims(series, axis=-1)
+        ds = tf.data.Dataset.from_tensor_slices(series)
+        ds = ds.window(window_size + 1, shift=1, drop_remainder=True)
+        ds = ds.flat_map(lambda w: w.batch(window_size + 1))
+        ds = ds.shuffle(shuffle_buffer)
+        ds = ds.map(lambda w: (w[:-1], w[1:]))
+        return ds.batch(batch_size).prefetch(1)
+
+    def recursive_neural_network_lr_optimization(train_set, metrics='mae'):
+        tf.keras.backend.clear_session()
+        tf.random.set_seed(51)
+        np.random.seed(51)
+        # model having:
+        # -> a 1D-convolutional filter with a width of 5 (2 samples before,
+        # two after the selected sample)
+        # -> two LSTM layers do the sequence learning work
+        # -> two dense layers, and
+        #  an output layer (1 neuron) 
+        model = tf.keras.models.Sequential([
+        tf.keras.layers.Conv1D(filters=32, kernel_size=5,
+                            strides=1, padding="causal",
+                            activation="relu",
+                            input_shape=[None, 1]),
+        tf.keras.layers.LSTM(64, return_sequences=True),
+        tf.keras.layers.LSTM(64, return_sequences=True),
+        tf.keras.layers.Dense(30, activation="relu"),
+        tf.keras.layers.Dense(10, activation="relu"),
+        tf.keras.layers.Dense(1),
+        tf.keras.layers.Lambda(lambda x: x * 400)
+        ])
+        # learning rate is increased sucessively over the 100 epochs
+        lr_schedule = tf.keras.callbacks.LearningRateScheduler(lambda epoch: 1e-8 * 10**(epoch / 20))
+        optimizer = tf.keras.optimizers.SGD(learning_rate=1e-8, momentum=0.9)
+        model.compile(loss=tf.keras.losses.Huber(),
+                    optimizer=optimizer,
+                    metrics=[metrics])
+        history = model.fit(train_set, epochs=100, callbacks=[lr_schedule], verbose=0)
+        plt.semilogx(history.history["lr"], history.history["loss"])
+        plt.axis([1e-8, 1e-4, 0, 60])
+        plt.title('Learing Rate Optimization')
+        plt.xlabel("Learing Rate")
+        plt.ylabel("Loss")
+        plt.show()
+        return model, history
+
+    def plot_optimized_model_progress(train_set, lr):
+        tf.keras.backend.clear_session()
+        tf.random.set_seed(51)
+        np.random.seed(51)
+        model = tf.keras.models.Sequential([
+        tf.keras.layers.Conv1D(filters=32, kernel_size=5,
+                            strides=1, padding="causal",
+                            activation="relu",
+                            input_shape=[None, 1]),
+        tf.keras.layers.LSTM(60, return_sequences=True),
+        tf.keras.layers.LSTM(60, return_sequences=True),
+        tf.keras.layers.Dense(30, activation="relu"),
+        tf.keras.layers.Dense(10, activation="relu"),
+        tf.keras.layers.Dense(1),
+        tf.keras.layers.Lambda(lambda x: x * 400)
+        ])
+        optimizer = tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.9)
+
+        checkpoint_path = "examples/solar_cycles_data/cp.ckpt"
+        checkpoint_dir = os.path.dirname(checkpoint_path)
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
+                                                    save_weights_only=True,
+                                                    verbose=1)
+
+        model.compile(loss=tf.keras.losses.Huber(),
+                    optimizer=optimizer,
+                    metrics=["mae"])
+        
+        
+        history = model.fit(train_set, epochs=500, verbose=0, callbacks=[cp_callback])
+        #import matplotlib.image  as mpimg
+        loss = history.history['loss']
+        epochs = range(len(loss))
+        # full graph
+        plt.plot(epochs, loss, 'r')
+        plt.title('Training loss')
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.legend(["Loss"])
+        #plt.figure()
+        plt.show()
+        # zoomed graph
+        zoomed_loss = loss[200:]
+        zoomed_epochs = range(200,500)
+        plt.plot(zoomed_epochs, zoomed_loss, 'r')
+        plt.title('Training loss (zoomed)')
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.legend(["Loss"])
+        #plt.figure()
+        plt.show()
+        return model
+
+    def create_model():
+        tf.keras.backend.clear_session()
+        tf.random.set_seed(51)
+        np.random.seed(51)
+        model = tf.keras.models.Sequential([
+        tf.keras.layers.Conv1D(filters=32, kernel_size=5,
+                            strides=1, padding="causal",
+                            activation="relu",
+                            input_shape=[None, 1]),
+        tf.keras.layers.LSTM(60, return_sequences=True),
+        tf.keras.layers.LSTM(60, return_sequences=True),
+        tf.keras.layers.Dense(30, activation="relu"),
+        tf.keras.layers.Dense(10, activation="relu"),
+        tf.keras.layers.Dense(1),
+        tf.keras.layers.Lambda(lambda x: x * 400)
+        ])
+        model.compile(loss=tf.keras.losses.Huber(),
+                    metrics=["mae"])
+        return model
+
+    def model_forecast(model, series, window_size):
+        ds = tf.data.Dataset.from_tensor_slices(series)
+        ds = ds.window(window_size, shift=1, drop_remainder=True)
+        ds = ds.flat_map(lambda w: w.batch(window_size))
+        ds = ds.batch(32).prefetch(1)
+        forecast = model.predict(ds)
+        return forecast
+
+    def find_best(series_list, test_values, window_size, plot=True):
+
+        test = test_values[window_size-1:-window_size]
+        predict = np.roll(series_list[:, 0, 0], 0)[window_size:]
+        aux = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
+        index = 0
+        for i in range(1, series_list.shape[1]):
+            predict = np.roll(series_list[:, i, 0], i)[window_size:]
+            print('Mean Absolute Error (MAE): ', i,
+                tf.keras.metrics.mean_absolute_error(test, predict).numpy())   
+            temp = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
+            if temp < aux:
+                aux = temp
+                index = i
+        predict = np.roll(series_list[:, index, 0], index)[window_size:]
+        if plot:
+            plt.plot(predict, label='best prediction', c='red')
+            plt.plot(test, label='validation set', linestyle='--', c='blue')
+            plt.show()
+        return predict
+
+    def load_model(checkpoint_path):
+        model = series_model_keras.create_model()
+        checkpoint_dir = os.path.dirname(checkpoint_path)
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
+                                                        save_weights_only=True,
+                                                        verbose=1)
+        model.load_weights(checkpoint_path)
+        return model
+
