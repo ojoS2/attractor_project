@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, '/home/ricardo/Desktop/AttractorProject/attractor_project')
 from datetime import timedelta
 from tensorflow import keras
+from kaggle.api.kaggle_api_extended import KaggleApi
 from src.attractor_project.tools import parametric_diferential_equations as pde
 from src.attractor_project.tools import iterated_maps as im
 from src.attractor_project.tools import time_series_generators as tsg
@@ -17,20 +18,21 @@ from src.attractor_project.tools import non_linear_methods as nlm
 
 
 def import_a_file_from_kaggle_as_dataframe(data_identifyer,
-                                         temp_directory, file_name):
-    from kaggle.api.kaggle_api_extended import KaggleApi
+                                           temp_directory, file_name,
+                                           zip_name):
     api = KaggleApi()
     api.authenticate()
     api.dataset_download_files(data_identifyer, path=temp_directory)
     try:
-        with zipfile.ZipFile(temp_directory + "/" + file_name,
+        with zipfile.ZipFile(temp_directory + "/" + zip_name,
                              mode="r") as archive:
             archive.extract(file_name,
                             path=temp_directory + "/")
     except zipfile.BadZipFile as error:
         print(error)
     df = pd.read_csv(temp_directory + "/" + file_name)
-    os.system('rm -R ' + temp_directory)
+    os.system('rm ' + 'sunspots.zip')
+    #os.system('rm ' + 'Sunspots.cvs')
     return df
 
 def column_datetime_to_float(df, initial_value, conversion_unity,
@@ -102,7 +104,8 @@ def windowed_dataset(series, window_size, batch_size, shuffle_buffer):
     ds = ds.map(lambda w: (w[:-1], w[1:]))
     return ds.batch(batch_size).prefetch(1)
 
-def recursive_neural_network_lr_optimization(train_set, metrics='mae'):
+def recursive_neural_network_lr_optimization(train_set,
+                                             metrics='mae'):
     tf.keras.backend.clear_session()
     tf.random.set_seed(51)
     np.random.seed(51)
@@ -139,7 +142,7 @@ def recursive_neural_network_lr_optimization(train_set, metrics='mae'):
     plt.show()
     return model, history
 
-def plot_optimized_model_progress(train_set, lr):
+def plot_optimized_model_progress(train_set, checkpoint_path, lr):
     tf.keras.backend.clear_session()
     tf.random.set_seed(51)
     np.random.seed(51)
@@ -157,8 +160,8 @@ def plot_optimized_model_progress(train_set, lr):
     ])
     optimizer = tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.9)
 
-    checkpoint_path = "examples/solar_cycles_data/cp.ckpt"
-    checkpoint_dir = os.path.dirname(checkpoint_path)
+    #checkpoint_path = "examples/solar_cycles_data/cp.ckpt"
+    #checkpoint_dir = os.path.dirname(checkpoint_path)
     cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
@@ -229,26 +232,6 @@ def model_forecast(model, series, window_size):
     forecast = model.predict(ds)
     return forecast
 
-def find_best(series_list, test_values, window_size):
-
-    test = test_values[window_size-1:-window_size]
-    #plt.plot(test, label='validation set', linestyle='--')
-    predict = np.roll(series_list[:, 0, 0], 0)[window_size:]
-    aux = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
-    index = 0
-    for i in range(1, 64):
-        predict = np.roll(series_list[:, i, 0], i)[window_size:]
-        print('Mean Absolute Error (MAE): ', i,
-              tf.keras.metrics.mean_absolute_error(test, predict).numpy())   
-        temp = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
-        if temp < aux:
-            aux = temp
-            index = i
-    predict = np.roll(series_list[:, index, 0], index)[window_size:]
-    #plt.plot(predict)
-    #plt.show()
-    return predict
-
 def load_single_file_from_zip(temp_directory, file_name):
     try:
         with zipfile.ZipFile(temp_directory + "/" + file_name,
@@ -314,21 +297,60 @@ def experiments(model, values_test, window_size):
         list_of_best_fit.append(find_best(series_list=rnn_forecast, test_values=values_test, window_size=window_size))
     return list_of_best_fit
 
+def load_model(checkpoint_path):
+    model = create_model()
+    checkpoint_dir = os.path.dirname(checkpoint_path)
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
+                                                     save_weights_only=True,
+                                                     verbose=1)
+    model.load_weights(checkpoint_path)
+    return model
+
+def find_best(series_list, test_values, window_size, plot=True):
+    test = test_values[window_size-1:-window_size]
+    predict = np.roll(series_list[:, 0, 0], 0)[window_size:]
+    aux = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
+    index = 0
+    for i in range(1, series_list.shape[1]):
+        predict = np.roll(series_list[:, i, 0], i)[window_size:]
+        print('Mean Absolute Error (MAE): ', i,
+            tf.keras.metrics.mean_absolute_error(test, predict).numpy())   
+        temp = tf.keras.metrics.mean_absolute_error(test, predict).numpy()
+        if temp < aux:
+            aux = temp
+            index = i
+    predict = np.roll(series_list[:, index, 0], index)[window_size:]
+    print('Mean Absolute Error (MAE) of the best is: ',
+          tf.keras.metrics.mean_absolute_error(test,
+          np.roll(series_list[:, index, 0], index)[window_size:]).numpy())
+    if plot:
+        plt.plot(predict, label='best prediction', c='red')
+        plt.plot(test, label='validation set', linestyle='--', c='blue')
+        plt.show()
+    return predict
+
+tf.keras.backend.clear_session()
+tf.random.set_seed(51)
+np.random.seed(51)
+window_size = 100
+batch_size = 256
+shuffle_buffer_size = 1000
 data_identifyer = 'robervalt/sunspots'
 temp_directory = "examples/solar_cycles_data"
-checkpoint_directory = "examples/models_checkpoint"
+checkpoint_directory = "examples/solar_cycles_data/models_checkpoint"
 file_name = "Sunspots.csv"
+zip_name = "sunspots.zip"
 column_to_sort='Date'
 period_to_normalize = 31
+#df = load_single_file_from_zip(temp_directory, file_name)
 df = import_a_file_from_kaggle_as_dataframe(data_identifyer,
-                                            temp_directory, file_name)
-
+                                            temp_directory, file_name,
+                                            zip_name)
+df = sort_and_convert_datetime_columns(df, column_to_sort='Date')
 df = column_datetime_to_float(df,
                               initial_value = df['Date'][0],
                               conversion_unity='d',
                               date_column='Date')
-df = load_single_file_from_zip(temp_directory, file_name)
-df = sort_and_convert_datetime_columns(df, column_to_sort='Date')
 plot_time_interval_occurencies(df, column='float_time')
 # the intervals need normalization
 df = normalize_time_intervals(df,
@@ -347,39 +369,16 @@ split = int(0.75*len(time))
 time_train, values_train = np.array(time[:split]), np.array(series[:split])
 time_test, values_test = np.array(time[split:]), np.array(series[split:])
 # the window size is important for training results
-window_size = 100
-batch_size = 120
-shuffle_buffer_size = 1000
 plot_dataspliting(time_train, values_train, 
                   time_test, values_test,
                   series, time, window_size)
-
-
-tf.keras.backend.clear_session()
-tf.random.set_seed(51)
-np.random.seed(51)
-window_size = 100
-batch_size = 256
 train_set = windowed_dataset(values_train, window_size,
                              batch_size, shuffle_buffer_size)
-model, history = recursive_neural_network_lr_optimization(train_set)
-model = plot_optimized_model_progress(train_set, lr=1e-5)
-print('Model mounted')
-#load_model()
-
-
+#model, history = recursive_neural_network_lr_optimization(train_set)
+#model = plot_optimized_model_progress(train_set, checkpoint_directory, lr=1e-5)
+#print('Model mounted')
+model = load_model(checkpoint_path=checkpoint_directory)
 rnn_forecast = model_forecast(model,
                               np.array(values_test)[..., np.newaxis],
                               window_size)
-
-print(rnn_forecast.shape)
-
-
-list_of_best_fit = experiments(model, values_test, window_size)
-for i in list_of_best_fit:
-    print(i)
-    plt.plot(i)
-plt.plot(values_test[window_size-1:-window_size], label='validation set', linestyle='--')
-plt.show()
-
-print('Mean Absolute Error (MAE): ',tf.keras.metrics.mean_absolute_error(values_test, rnn_forecast).numpy())
+best_prediction = find_best(rnn_forecast, np.array(values_test), window_size, plot=True)#list_of_best_fit = #experiments(model, values_test, window_size)
