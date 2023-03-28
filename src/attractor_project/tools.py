@@ -10,20 +10,11 @@ import os
 from scipy import stats
 from scipy.fft import rfft, irfft, rfftfreq
 from sklearn import metrics
-from tensorflow import keras
+#from tensorflow import keras
 
 
 class parametric_diferential_equations():
-    """Set of diferential equations in parametric form which
-    we use in the main code
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-
-    
+    """Diferential equation in parametric form
     """
     def pendulum_ode(x, y, b=0.25, c=5.0):
         """Pendulum ODE
@@ -130,6 +121,37 @@ class iterated_maps():
                 x, A=A, B=B, C=C, n=n-1)*(iterated_maps.quadratic_map(
                 x, A=A, B=B, C=C, n=n-1) + B) + C
 
+    def henon_map(x, y, a=1.4, b=0.3, n=1):
+        """Henon map. It receives two values of the
+        function at t=t and returns it at the instant t=t+1 following
+        a henon recepee.
+
+        Parameters
+        ----------
+        x : a float. The initial value of the function
+            
+        A : a float. The second order coefficient
+            (Default value = 1)
+        B : a float. A*B is the first order coefficient
+            (Default value = 0)
+        n :
+            (Default value = 1)
+
+        Returns
+        -------
+
+        
+        """
+        if n < 1:
+            return None
+        elif n == 1:
+            return [y + 1 - a*x**2, b*x]
+        else:
+            pass
+        #    return iterated_maps.henon_map(x=x, y=y, a=a, b=b, n=n-1)[1]\
+        #           + 1 - a*iterated_maps.henon_map(x=x, y=y, a=a, b=b, n=n-1)[0]**2,\
+        #           b*iterated_maps.henon_map(x=x, y=y, a=a, b=b, n=n-1)[0]
+
 class simple_equation_solvers():
     """Simple Runge-Kutta solvers for ODEs"""
     def rk1(ode, state, parameters, dt=0.001):
@@ -233,7 +255,7 @@ class time_series_generators():
         return data
 
     def generate_series_from_iterated_maps(data_length, iter_map, initial_state,
-                                           transient=0, parameters=[1, 0, -1.5, 1]):
+                                           parameters, transient=0):
         """ Generte a time series from iterated maps
         Parameters
         ----------
@@ -253,13 +275,24 @@ class time_series_generators():
 
         """
         state = initial_state
-        for i in range(transient):
-            state = [iter_map(*state, *parameters)]
-        data = [state[0]]
-        for i in range(data_length):
-            state = [iter_map(*state, *parameters)]
-            data.append(state[0])
-        return data
+        if len(state) == 1:
+            for i in range(transient):
+                state = [iter_map(*state, *parameters)]
+            data = [i for i in state]
+            for i in range(data_length):
+                state = [iter_map(*state, *parameters)]
+                data.append([i for i in state][0])
+            return data
+        elif len(state) > 1:
+            for i in range(transient):
+                temp = iter_map(*state, *parameters)
+                for j in range(len(state)):
+                    state[j] = temp[j]
+            data = [state]
+            for i in range(data_length):
+                state = iter_map(*state, *parameters)
+                data.append(state)
+            return data
 
 class spectral_analysis():
     """Spectral analysis of time series with Fourier transforms"""
@@ -671,6 +704,10 @@ class non_linear_methods():
             data_lag0 = np.array(data[:-tau_to_use]).flatten()
             data_lag1 = np.array(np.roll(data, -tau_to_use)[:-tau_to_use]).flatten()
             data_lag2 = np.array(np.roll(data, -2 * tau_to_use)[:-tau_to_use]).flatten()
+        else:
+            data_lag0 = np.array(data[:-tau_to_use]).flatten()
+            data_lag1 = np.array(np.roll(data, -tau_to_use)[:-tau_to_use]).flatten()
+            data_lag2 = np.array(np.roll(data, -2 * tau_to_use)[:-tau_to_use]).flatten()
         if plot:
           # Plot time delay embedding
           if how_many_plots == 1:
@@ -694,8 +731,8 @@ class non_linear_methods():
                     marker='.', c='black')
                     ax[index].set_title(f'reconstructed attractor (lagg {i})')
                plt.show()
-        return data_lag0, data_lag1, data_lag2       
-
+        return data_lag0, data_lag1, data_lag2, tau_to_use
+'''
 class series_model_keras():
 
     def windowed_dataset(series, window_size, batch_size, shuffle_buffer):
@@ -854,4 +891,4 @@ class series_model_keras():
                                                         verbose=1)
         model.load_weights(checkpoint_path)
         return model
-
+'''
