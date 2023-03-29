@@ -316,7 +316,7 @@ class spectral_analysis():
     
     def fft_filter(percentual, spectrum):
         """ Generte a time series from the raw data where frequencies
-        whit low enough amplitude are set to zero (filtered signal)
+        with low enough amplitude are set to zero (filtered signal)
         ----------
         data : an array of floats. The spectrum to filter
      

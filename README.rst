@@ -96,4 +96,25 @@ This class contains a set of tools to analyse time series with simplified Fourie
 
 fourier_discreet_transform(data, sample_rate, duration)
 -------------------------------------------------------
+This function receives three arguments. The time series ``data``. The rate each sample was measured (time delta between entries) ``sample_rate``. And the duration of the signal: ``duration``.
 It returns a tuple of two numpy arrays. A row array containing frequencies measured and a row array containing the amplitudes.
+
+fft_filter(percentual, spectrum)
+--------------------------------
+Takes a float between 0 and 1: ``percentual``; and the amplitudes of the frequencies coposing the frequency spectrum of the time series. This function sets to zero (cut off) the amplitudes lower than percentual% of the maximum âmplitude in the signal and returns the spectrum with this modification.
+It is used to filter the spectrum for low amplitude frequencies.
+
+filtered_signal(perc, spectrum)
+-------------------------------
+This function takes the float ``percentual`` and the amplitudes of the frequencies of the signal Fourier descreet spectrum ``spectrum`` to call the function ``fft_filter(percentual, spectrum)`` to get a filtered spectrum and build a filtered signal from it. 
+It returns a filtered spectryum and the filtered signal.
+
+best_scale(data, inf=0.001, sup=0.5, p_threshold=0.005, grafics=False)
+----------------------------------------------------------------------
+To decide which percentage to use to filterthe signal, this function performs a variation of percentage values measuring the correlation of the residual (true signal minus filtered signal correlation to the true signal) and its p-value. It selects the pecentage value under the imputed p-value limiar having the lower correlation measured.
+It takes the signal: ``data``; the range of percentages to consider: ``inf`` and ``sup``; the p-values threshold ``p_threshold``, and; a parameter ``grafics`` that if True the function plots the correlation and p-values measured against the percentage variation.
+
+
+non_linear_methods class
+========================
+This class is a set of tools used for signal processing but originating from non-linear dynamics. They concentrate on different characteristics of the signal compared to Fourier analysis.
