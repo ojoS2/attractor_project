@@ -107,14 +107,21 @@ def plot_hist_ode():
     plt.legend(loc='best')
     plt.show()
 
-# building the data from iterated maps and diferential equations
-df_im_ts, df_ode_ts = build_data()
-# ploting histograms of the iterated maps
-#plot_hist_im()
-#plot_hist_ode()
+def plot_1D():
+    fig = plt.figure()
+    ax0 = fig.add_subplot(121)
+    nlm.cobweb_diagram(imap=im.quadratic_map,
+                       init_condit=[0],
+                       params=[1, 0, -1.7, 1],
+                       iter=100, xlim=[-3, 3],
+                       ylim=[-3, 3],
+                       show=False, ax=ax0)
+    ax0.set_title('Quadractic map \n cobweb diagram')
+    ax1 = fig.add_subplot(122)
+    ax1.plot(df_im_ts['quadractic map'][:100], c='blue')
+    ax1.set_title('Quadractic map \n time series')
+    plt.show()
 
-
-# bidimensional maps plots
 def plot_2D():
     fig = plt.figure()
     ax0 = fig.add_subplot(221)
@@ -164,7 +171,6 @@ def plot_3D():
     ax3.plot(df_ode_ts['lorenz y'][-700:], c='red', label='y coordinate')
     ax3.plot(df_ode_ts['lorenz z'][-700:], c='green', label='z coordinate')
     ax3.set_title('Lorenz attractor \n coordinates time series')
-
     plt.subplots_adjust(left=0.2,
                             bottom=0.1,
                             right=0.8,
@@ -174,5 +180,247 @@ def plot_3D():
     plt.legend(loc='best')
     plt.show()
 
+def spectral_decomposition(data):
+    temp = data
+    temp = temp - np.mean(data)
+    frequencies, amplitudes = sa.\
+    fourier_discreet_transform(data=temp,
+                            sample_rate=1,
+                            duration=len(temp))
+    filtered_spectrum, filtered_signal=sa.\
+    filtered_signal(perc=0, spectrum=amplitudes)
+    return temp, frequencies, amplitudes, filtered_spectrum, filtered_signal
+
+def plot_spectral_decomposition(axA, axB, data_name, signal,
+                                frequencies, amplitudes,
+                                filtered_signal, xmin=100,
+                                xmax=200):
+    axA.plot(frequencies, amplitudes, c='black', alpha=0.3)
+    axA.set_title(f'{data_name} \n descreete Fourier spectrum')
+    axB.plot(signal[xmin: xmax], c='blue', label='generated series', alpha=0.5)
+    axB.plot(filtered_signal[xmin: xmax], c='red', label='inverse transform',
+            alpha=0.9)
+    axB.set_title(f'{data_name} \n time series')
+
+def plot_spectral_analysis_maps():
+    fig = plt.figure()
+    ax0 = fig.add_subplot(321)
+    ax1 = fig.add_subplot(322)
+    ax2 = fig.add_subplot(323)
+    ax3 = fig.add_subplot(324)
+    ax4 = fig.add_subplot(325)
+    ax5 = fig.add_subplot(326)
+    signal, frequencies, amplitudes, _, filtered_signal = \
+    spectral_decomposition(data = list(df_im_ts['quadractic map'].values))
+    plot_spectral_decomposition(axA = ax0, axB = ax1, data_name='Quadractic map',
+                                signal=signal, frequencies=frequencies,
+                                amplitudes=amplitudes,
+                                filtered_signal=filtered_signal)
+
+    signal, frequencies, amplitudes, _, filtered_signal = \
+    spectral_decomposition(data = list(df_im_ts['henon map x'].values))
+    plot_spectral_decomposition(axA=ax2, axB=ax3,
+                                data_name='Henon map x coordinate',
+                                signal=signal, frequencies=frequencies,
+                                amplitudes=amplitudes,
+                                filtered_signal=filtered_signal)
+    signal, frequencies, amplitudes, _, filtered_signal = \
+    spectral_decomposition(data = list(df_im_ts['henon map y'].values))
+    plot_spectral_decomposition(axA=ax4, axB=ax5,
+                                data_name='Henon map y coordinate',
+                                signal=signal, frequencies=frequencies,
+                                amplitudes=amplitudes,
+                                filtered_signal=filtered_signal)
+    plt.subplots_adjust(left=0.2,
+                        bottom=0.1,
+                        right=0.9,
+                        top=0.9,
+                        wspace=0.4,
+                        hspace=0.8)
+    ax3.legend(bbox_to_anchor=(0.465, 0.5))
+    plt.show()
+
+def plot_spectral_analysis_ODEs():
+    fig = plt.figure()
+    ax0 = fig.add_subplot(421)
+    ax1 = fig.add_subplot(422)
+    ax2 = fig.add_subplot(423)
+    ax3 = fig.add_subplot(424)
+    ax4 = fig.add_subplot(425)
+    ax5 = fig.add_subplot(426)
+    ax6 = fig.add_subplot(427)
+    ax7 = fig.add_subplot(428)
+    signal, frequencies, amplitudes, _, filtered_signal = \
+    spectral_decomposition(data = list(df_ode_ts['rossler x'].values))
+    plot_spectral_decomposition(axA = ax0, axB = ax1, data_name='Rossler x coordinate',
+                                signal=signal, frequencies=frequencies,
+                                amplitudes=amplitudes,
+                                filtered_signal=filtered_signal,
+                                xmin=1000, xmax=5000)
+
+    signal, frequencies, amplitudes, _, filtered_signal = \
+    spectral_decomposition(data = list(df_ode_ts['rossler z'].values))
+    plot_spectral_decomposition(axA=ax2, axB=ax3,
+                                data_name='Rossler z coordinate',
+                                signal=signal, frequencies=frequencies,
+                                amplitudes=amplitudes,
+                                filtered_signal=filtered_signal,
+                                xmin=1000, xmax=5000)
+    signal, frequencies, amplitudes, _, filtered_signal = \
+    spectral_decomposition(data = list(df_ode_ts['lorenz x'].values))
+    plot_spectral_decomposition(axA=ax4, axB=ax5,
+                                data_name='Lorenz x coordinate',
+                                signal=signal, frequencies=frequencies,
+                                amplitudes=amplitudes,
+                                filtered_signal=filtered_signal,
+                                xmin=500, xmax=2000)
+    signal, frequencies, amplitudes, _, filtered_signal = \
+    spectral_decomposition(data = list(df_ode_ts['lorenz z'].values))
+    plot_spectral_decomposition(axA=ax6, axB=ax7,
+                                data_name='Lorenz z coordinate',
+                                signal=signal, frequencies=frequencies,
+                                amplitudes=amplitudes,
+                                filtered_signal=filtered_signal,
+                                xmin=500, xmax=2000)
+    plt.subplots_adjust(left=0.2,
+                                bottom=0.1,
+                                right=0.9,
+                                top=0.9,
+                                wspace=0.4,
+                                hspace=1.3)
+    ax3.legend(bbox_to_anchor=(0.17, 0.45))
+    plt.show()
+
+def Lorentz_map_plots():
+    fig = plt.figure()
+    ax0 = fig.add_subplot(321)
+    ax1 = fig.add_subplot(322)
+    ax2 = fig.add_subplot(323)
+    ax3 = fig.add_subplot(324)
+    ax4 = fig.add_subplot(325)
+    ax5 = fig.add_subplot(326)
+    x, y = nlm.lorentz_map(Signal=list(df_im_ts['quadractic map'].values),
+                        lag=1, plot=False)
+    ax0.scatter(x, y, c='black', marker='.', s=0.1, label='data')
+    ax0.plot(x, x, c='red', linewidth=0.5, label='f(x)=x curve')
+    ax0.set_title('Lorenz map of \n the quadractic map')
+    ax0.set_ylabel('f(x+1)')
+    x, y = nlm.lorentz_map(Signal=list(df_im_ts['henon map x'].values),
+                        lag=1, plot=False)
+    ax1.scatter(x, y, c='black', marker='.', s=0.1, label='data')
+    ax1.set_title('Lorenz map of \n the Henon map coordinate x')
+    ax1.plot(x, x, c='red', linewidth=0.5, label='f(x)=x curve')
+    x, y = nlm.lorentz_map(Signal=list(df_ode_ts['rossler x'].values),
+                        lag=1, plot=False)
+    ax2.scatter(x, y, c='black', marker='.', s=0.1, label='data')
+    ax2.plot(x, x, c='red', linewidth=0.5, label='f(x)=x curve')
+    ax2.set_title('Lorenz map of \n the Rossler map coordinate x')
+    ax2.set_ylabel('f(x+1)')
+    x, y = nlm.lorentz_map(Signal=list(df_ode_ts['rossler z'].values),
+                        lag=1, plot=False)
+    ax3.scatter(x, y, c='black', marker='.', s=0.1, label='data')
+    ax3.plot(x, x, c='red', linewidth=0.5, label='f(x)=x curve')
+    ax3.set_title('Lorenz map of \n the Rossler map coordinate z')
+    x, y = nlm.lorentz_map(Signal=list(df_ode_ts['lorenz x'].values),
+                        lag=1, plot=False)
+    ax4.scatter(x, y, c='black', marker='.', s=0.1, label='data')
+    ax4.plot(x, x, c='red', linewidth=0.5, label='f(x)=x curve')
+    ax4.set_title('Lorenz map of \n the Lorenz map coordinate x')
+    ax4.set_ylabel('f(x+1)')
+    ax4.set_xlabel('f(x)')
+    x, y = nlm.lorentz_map(Signal=list(df_ode_ts['lorenz z'].values),
+                        lag=1, plot=False)
+    ax5.scatter(x, y, c='black', marker='.', s=0.1, label='data')
+    ax5.plot(x, x, c='red', linewidth=0.5, label='f(x)=x curve')
+    ax5.set_title('Lorenz map of \n the Lorenz map coordinate z')
+    ax5.set_xlabel('f(x)')
+    plt.subplots_adjust(left=0.2,
+                        bottom=0.1,
+                        right=0.9,
+                        top=0.9,
+                        wspace=0.4,
+                        hspace=0.8)
+    plt.show()
+
+def plot_attractors():
+    fig = plt.figure()
+    x, y, z, tau = nlm.attractor_reconstructor(data=list(\
+        df_im_ts['quadractic map'].values),
+        tau_to_use=1, how_many_plots=1,
+        scatter=True, plot=False)
+    ax0 = fig.add_subplot(121, projection = '3d')
+    ax0.scatter(x, y, z, marker='.', c='black', s=0.1)
+    ax0.set_title('Reconstructed attractor \n\
+                quadractic map (lag=1)')
+    x, y, z, tau = nlm.attractor_reconstructor(data=list(\
+        df_im_ts['henon map x'].values),
+        tau_to_use=1, how_many_plots=1,
+        scatter=True, plot=False)
+    ax1 = fig.add_subplot(122, projection = '3d')
+    ax1.scatter(x, y, z, marker='.', c='black', s=0.1)
+    ax1.set_title('Reconstructed attractor \n\
+                henon map (x coordinate, lag=1)')
+    fig = plt.figure()
+    x, y, z, tau = nlm.attractor_reconstructor(data=list(\
+        df_ode_ts['rossler x'].values),
+        tau_to_use=None, how_many_plots=1,
+        scatter=True, plot=False)
+    ax0 = fig.add_subplot(221, projection = '3d')
+    ax0.scatter(x, y, z, marker='.', c='black', s=0.1)
+    ax0.set_title(f'Reconstructed attractor \n\
+                Rossler ODE (x coordinate, lag={tau})')
+    x, y, z, tau = nlm.attractor_reconstructor(data=list(\
+        df_ode_ts['rossler z'].values),
+        tau_to_use=None, how_many_plots=1,
+        scatter=True, plot=False)
+    ax1 = fig.add_subplot(222, projection = '3d')
+    ax1.scatter(x, y, z, marker='.', c='black', s=0.1)
+    ax1.set_title(f'Reconstructed attractor \n\
+                Rossler ODE (z coordinate, lag={tau})')
+    x, y, z, tau = nlm.attractor_reconstructor(data=list(\
+        df_ode_ts['lorenz x'].values),
+        tau_to_use=None, how_many_plots=1,
+        scatter=True, plot=False)
+    ax2 = fig.add_subplot(223, projection = '3d')
+    ax2.scatter(x, y, z, marker='.', c='black', s=0.1)
+    ax2.set_title(f'Reconstructed attractor \n\
+                Lorenz ODE (x coordinate, lag={tau})')
+    x, y, z, tau = nlm.attractor_reconstructor(data=list(\
+        df_ode_ts['lorenz z'].values),
+        tau_to_use=None, how_many_plots=1,
+        scatter=True, plot=False)
+    ax3 = fig.add_subplot(224, projection = '3d')
+    ax3.scatter(x, y, z, marker='.', c='black', s=0.1)
+    ax3.set_title(f'Reconstructed attractor \n\
+                Lorenz ODE (z coordinate, lag={tau})')
+    plt.subplots_adjust(left=0.2,
+                        bottom=0.1,
+                        right=0.9,
+                        top=0.9,
+                        wspace=0.4,
+                        hspace=0.8)
+    plt.show()
+
+# building the data from iterated maps and diferential equations
+df_im_ts, df_ode_ts = build_data()
+# ploting histograms of the iterated maps
+#plot_hist_im()
+#plot_hist_ode()
+
+
+# bidimensional maps plots
+
+#plot_1D()
 #plot_2D()
-plot_3D()
+#plot_3D()
+
+
+#spectral analysis 
+# maps
+#plot_spectral_analysis_ODEs()
+
+# non-linear methods
+# Lorenz map
+#Lorentz_map_plots()
+
+#attractor reconstructor

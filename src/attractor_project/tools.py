@@ -417,7 +417,7 @@ class spectral_analysis():
 class non_linear_methods():
     """Non-linear methods applyied to time series analysis"""
     def cobweb_diagram(imap, init_condit, params, iter=1000, xlim=[-3, 3],
-                       ylim=[-3,3]):
+                       ylim=[-3,3], show=True, ax=None):
         """Produces a cobweb diagram of the iterated map under the initial
         condition and parameters
 
@@ -445,25 +445,46 @@ class non_linear_methods():
         # plot the identity and the map
         x = np.linspace(xlim[0], xlim[1], num=100)
         y = [imap(i, *params) for i in x]
-        plt.plot(x, y, c='black')
-        plt.plot(x, x, c='blue')
-        plt.axvline(x=0, linewidth=0.5, color='gray')
-        plt.axhline(y=0, linewidth=0.5, color='gray')
-        plt.xlim(xlim[0], xlim[1])
-        plt.ylim(ylim[0], ylim[1])
-        # calculation and ploting of the cobweb
-        args = init_condit
-        y_0 = [imap(*args, *params)]
-        for i in range(iter):
-            if abs(y_0[0]) > ylim[1]:
-                print(f'{i} iteractions before getting out.')
-                plt.show()
-                break
-            plt.plot((args[0], args[0]), (args[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
-            plt.plot((args[0], y_0[0]), (y_0[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
-            args = y_0
+        if ax is None:
+            plt.plot(x, y, c='black')
+            plt.plot(x, x, c='blue')
+            plt.axvline(x=0, linewidth=0.5, color='gray')
+            plt.axhline(y=0, linewidth=0.5, color='gray')
+            plt.xlim(xlim[0], xlim[1])
+            plt.ylim(ylim[0], ylim[1])
+            # calculation and ploting of the cobweb
+            args = init_condit
             y_0 = [imap(*args, *params)]
-        plt.show()
+            for i in range(iter):
+                if abs(y_0[0]) > ylim[1]:
+                    print(f'{i} iteractions before getting out.')
+                    plt.show()
+                    break
+                plt.plot((args[0], args[0]), (args[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
+                plt.plot((args[0], y_0[0]), (y_0[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
+                args = y_0
+                y_0 = [imap(*args, *params)]
+        else:
+            ax.plot(x, y, c='black')
+            ax.plot(x, x, c='blue')
+            ax.axvline(x=0, linewidth=0.5, color='gray')
+            ax.axhline(y=0, linewidth=0.5, color='gray')
+            ax.set_xlim(xlim[0], xlim[1])
+            ax.set_ylim(ylim[0], ylim[1])
+            # calculation and ploting of the cobweb
+            args = init_condit
+            y_0 = [imap(*args, *params)]
+            for i in range(iter):
+                if abs(y_0[0]) > ylim[1]:
+                    print(f'{i} iteractions before getting out.')
+                    plt.show()
+                    break
+                ax.plot((args[0], args[0]), (args[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
+                ax.plot((args[0], y_0[0]), (y_0[0], y_0[0]), scaley = False, linewidth=0.5, color='red')
+                args = y_0
+                y_0 = [imap(*args, *params)]
+        if show:
+            plt.show()
 
     def cobweb_projection(imap, params, points= 1000, iter=10000,
                           xlim=[-2, 2], ylim=[-2,2], kept=True):
