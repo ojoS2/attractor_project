@@ -118,3 +118,12 @@ It takes the signal: ``data``; the range of percentages to consider: ``inf`` and
 non_linear_methods class
 ========================
 This class is a set of tools used for signal processing but originating from non-linear dynamics. They concentrate on different characteristics of the signal compared to Fourier analysis.
+
+cobweb_diagram(imap, init_condit, params, iter=1000, xlim=[-3, 3], ylim=[-3,3], show=True, ax=None)
+---------------------------------------------------------------------------------------------------
+
+This function takes a unidimensional iterated map, ``imap``, its initial condition, ``init_condit``, its parameters ``params``, and iterate it ``iter`` times and if the ``show`` argument is True it displays a cobweb diagram of the trajectory of the orbits in a box of limits ``xlim`` and ``ylim``. Else, if the ``ax`` argument is not None, it returns the ax object with the diagram for further customization.
+
+
+orbit_diagram(imap, measuring_time, init_cond_range, params_range, param_index, args_index, args, params, points=1000)
+----------------------------------------------------------------------------------------------------------------------
