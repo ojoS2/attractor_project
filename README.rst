@@ -124,6 +124,20 @@ cobweb_diagram(imap, init_condit, params, iter=1000, xlim=[-3, 3], ylim=[-3,3], 
 
 This function takes a unidimensional iterated map, ``imap``, its initial condition, ``init_condit``, its parameters ``params``, and iterate it ``iter`` times and if the ``show`` argument is True it displays a cobweb diagram of the trajectory of the orbits in a box of limits ``xlim`` and ``ylim``. Else, if the ``ax`` argument is not None, it returns the ax object with the diagram for further customization.
 
-
-orbit_diagram(imap, measuring_time, init_cond_range, params_range, param_index, args_index, args, params, points=1000)
+orbit_diagram(imap, measuring_time, init_cond_range, params_range, param_index, args_index, args, params, points=1000, thresshold=4)
 ----------------------------------------------------------------------------------------------------------------------
+This function prints the orbit diagram of the iterated map. It takes the map, ``imap``, the number of itractions to submit the map, ``measuring_time``, two arrays containing the range of the initial conditions and parameters to consider, ``init_cond_range`` and ``params_range``, which argument and parameter to vary in ``args_index`` and ``param_index``, the set of all parameters and arguments of the iterated map, ``args`` and ``params``, the "resolution" of the plot in the argument ``points``, wich is the number of steps in the parameter and argument variation, and finally the value of reference to consider or discard the solutions ``thresshold``.
+This function varyies a parameter and a initial condition (argument) of the map and iterate it ``measuring_time``. If the absolute of the value does not exceed the limit ``thresshold``, than we plot the values of the argument and the parameter in the graph ``param_index`` times ``args_index``. In the limit of ``measuring_time`` big, this means to keep all values where the orbits converge and not scape elsewhere.
+
+lorentz_map(Signal, lag=1, plot=True)
+-------------------------------------
+This tool plots the relation between a value and the value of the series ``lag`` steps behind. If ``lag`` is None, this function will find the relation between the local maximuns and plot them. It returns the lagged series togheter with the respective related values and if ``plot`` is True it prints the map.
+
+
+minimum_info_tau(data, tau_max=100, graph=False)
+------------------------------------------------
+This function finds the lag interval which composition with the original returns the least information (correlation). It takes teh signal, ``data``, the maximum lag to consider, ``tau_max``, and wheter to plot the correlation measured or not with the argument ``graph``.
+
+attractor_reconstructor(data, tau_to_use=None, how_many_plots=1, scatter=False, plot=True)
+------------------------------------------------------------------------------------------
+This function recostructs the attractor of a time series using the method of lags. It uses the signal, ``data``, the lag to consider ``tau_to_use``, which cam be an integer, None (in which case the lag returned by ``minimum_info_tau`` function) or an array of integers to be plotted in association of the argument ``how_many_plots`` which say how many recostructed attractors to plot using the available lags. The function retruns three series to generate a 3D map of the attractor and the lag used and if ``plot`` is True it shows the attractor with teh default configurations.

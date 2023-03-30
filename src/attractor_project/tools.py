@@ -539,7 +539,7 @@ class non_linear_methods():
      
     def orbit_diagram(imap, measuring_time, init_cond_range, params_range, 
                       param_index, args_index, args,
-                      params, points=1000):
+                      params, points=1000, thresshold=4):
         """Print the orbit diagram of the iterated map
 
         Parameters
@@ -583,9 +583,9 @@ class non_linear_methods():
                 args[args_index] = j
                 for k in range(measuring_time): 
                     args = [iterated_maps.quadratic_map(*args, *params)]
-                    if abs(args[args_index]) > 4:
+                    if abs(args[args_index]) > thresshold:
                         break
-                if abs(args[args_index]) < 4:
+                if abs(args[args_index]) < thresshold:
                     aux_x.append(i)
                     aux_y.append(args[args_index])
         plt.scatter(aux_x, aux_y, marker='o', s=0.001, c='black')
