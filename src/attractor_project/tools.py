@@ -312,7 +312,7 @@ class spectral_analysis():
         the Fourier spectrum of the data
         """
         return rfftfreq(int(duration*sample_rate),
-                        1/sample_rate), np.abs(rfft(data))
+                        1/sample_rate), rfft(data)
     
     def fft_filter(percentual, spectrum):
         """ Generte a time series from the raw data where frequencies
@@ -331,9 +331,9 @@ class spectral_analysis():
         data_abs = np.abs(spectrum)
         # defining the cutoff
         th = percentual*(np.max(data_abs))
-        data_tof = data_abs.copy()
+        data_tof = spectrum.copy()
         # filtering
-        data_tof[data_tof <= th] = 0
+        data_tof[data_abs <= th] = 0
         return data_tof
     
     def filtered_signal(perc, spectrum):
