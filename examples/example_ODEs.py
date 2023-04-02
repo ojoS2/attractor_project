@@ -434,20 +434,20 @@ print(tabulate(df_ode.head(10), headers = 'keys', tablefmt = 'rst'))
 
 # bidimensional maps plots
 
-#plot_1D(df_im)#, name='examples/figures/1D_visualization')
-#plot_2D(df_im, df_ode)#, name='examples/figures/2D_visualization')
-#plot_3D(df_ode)#, name='examples/figures/3D_visualization')
+plot_1D(df_im)#, name='examples/figures/1D_visualization')
+plot_2D(df_im, df_ode)#, name='examples/figures/2D_visualization')
+plot_3D(df_ode)#, name='examples/figures/3D_visualization')
 
 
 # ploting histograms of the iterated maps
-#plot_hist_im(df_im)#, name='examples/figures/tm_hist')
-#plot_hist_ode(df_ode)#, name='examples/figures/ode_hist')
+plot_hist_im(df_im)#, name='examples/figures/tm_hist')
+plot_hist_ode(df_ode)#, name='examples/figures/ode_hist')
 
 
 
 #spectral analysis 
-#plot_spectral_analysis_maps(df_im, name='examples/figures/im_spectrum')
-#plot_spectral_analysis_ODEs(df_ode, name='examples/figures/ode_spectrum')
+plot_spectral_analysis_maps(df_im, name='examples/figures/im_spectrum')
+plot_spectral_analysis_ODEs(df_ode, name='examples/figures/ode_spectrum')
 
 
 
@@ -456,7 +456,7 @@ print(tabulate(df_ode.head(10), headers = 'keys', tablefmt = 'rst'))
 
 #attractor reconstructor
 
-#plot_attractors(df_im, df_ode, name=['examples/figures/rec_im_attractor', 'examples/figures/rec_ode_attractor'])
+plot_attractors(df_im, df_ode, name=['examples/figures/rec_im_attractor', 'examples/figures/rec_ode_attractor'])
 
 # non-linear methods
 # Lorenz map

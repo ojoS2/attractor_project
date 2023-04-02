@@ -1,0 +1,219 @@
+import os
+import zipfile
+import pandas as pd
+import seaborn as sns
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.ticker as mtick
+import sys
+
+sys.path.insert(0, '/home/ricardo/Desktop/AttractorProject/attractor_project')
+from kaggle.api.kaggle_api_extended import KaggleApi
+from statsmodels.tsa.stattools import adfuller
+from scipy import signal
+from src.attractor_project.tools import spectral_analysis as sa
+from src.attractor_project.tools import non_linear_methods as nlm
+
+def import_a_file_from_kaggle_as_dataframe(data_identifyer,
+                                           temp_directory, file_name,
+                                           zip_name, unzip=True):
+    api = KaggleApi()
+    api.authenticate()
+    api.dataset_download_files(data_identifyer, path=temp_directory)
+    if unzip:
+        try:
+            with zipfile.ZipFile(temp_directory + "/" + zip_name,
+                                mode="r") as archive:
+                archive.extract(file_name,
+                                path=temp_directory + "/")
+        except zipfile.BadZipFile as error:
+            print(error)
+        df = pd.read_csv(temp_directory + "/" + file_name)
+        os.system('rm ' + temp_directory + "/" + zip_name)
+        os.system('rm ' + temp_directory + "/" + file_name)
+        return df
+
+def load_data_from_kaggle(features_list):
+    df_list = []
+    for i in features_list:
+        df_list.append(import_a_file_from_kaggle_as_dataframe(i['data_identifyer'],
+                                                         i['temp_directory'],
+                                                         i['file_name'],
+                                                         i['zip_name']))
+    return df_list
+
+def plot_time_series(df, time_column='Date', value_column=None):
+    fig, ax = plt.subplots(1, 1, figsize=(7, 7), layout='constrained')
+    if value_column is None:
+        for i in df.columns:
+            if i == time_column:
+                continue
+            else:
+                sns.lineplot(data=df, x=time_column, y=i, ax=ax, label=i, alpha=0.5)
+        ax.xaxis.set_major_locator(mdates.YearLocator(base = 5))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.grid(True)
+        plt.show()
+    else:
+        sns.lineplot(data=df, x=time_column, y=value_column, color='black', ax=ax)
+        ax.xaxis.set_major_locator(mdates.YearLocator(base = 5))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.grid(True)
+        plt.show()
+    
+def pre_process_dataframes(df, time_column='Date'):
+    df['diferences'] = df['Close'] - df['Open']
+    df[time_column] = pd.to_datetime(df[time_column])
+    df.sort_values(by=time_column, ascending=True, inplace=True)
+    #print(df.shape)
+    #print(df.head())
+    #print(df.dtypes)
+    return(df)
+
+def build_colinear_series(list, names_list, column_to_merge='Date',
+                          column_to_keep='diferences'):
+    df = list[0][[column_to_merge, column_to_keep]]
+    for i in range(1, len(list)):
+        df = df.merge(list[i][[column_to_merge, column_to_keep]],
+                      how='inner', on=column_to_merge)
+    df.columns = names_list
+    return df
+
+def stationarity_test(timeseries):
+    dftest = adfuller(timeseries, autolag='AIC')
+    result = pd.Series(dftest[0:4], index=['Test Statistic',
+                                           'P-value',
+                                           'Lags Used',
+                                           'No of Observations'])
+    for key,value in dftest[4].items():
+        result['Critical Value (%s)'%key] = value
+    return result
+
+def is_stationary(series_list, names_list, detailed_data=False):
+    for i in range(len(series_list)):
+        temp = stationarity_test(timeseries=list(series['coca_cola'].values))
+        if detailed_data:
+            print('Coca cola data:')
+            print(temp)
+        answer = f'Considering a p-value of 0.05, the {names_list[i]} time series\
+ should be considered '
+        if temp['P-value'] < 0.05:
+            print(answer + f"stationary as its measured p-value is {temp['P-value']}")
+        else:
+            print(answer + f"non-stationary as its measured p-value is {temp['P-value']}")
+
+def cross_correlation_values(series1, series2):
+    p = series1
+    q = series2
+    p = (p - np.mean(p)) / (np.std(p) * len(p))
+    q = (q - np.mean(q)) / (np.std(q))  
+    c = np.correlate(p, q, 'full')
+    l = signal.correlation_lags(len(series1), len(series2))
+    return c, l
+
+def ccf_plot(lags, ccf, ax):
+    ax.plot(lags, ccf)
+    #ax.axhline(-2/np.sqrt(23), color='red', label='5% confidence interval')
+    #ax.axhline(2/np.sqrt(23), color='red')
+    ax.axvline(x = 0, color = 'black', lw = 0.3)
+    ax.axhline(y = 0, color = 'black', lw = 0.3)
+    ax.axhline(y = np.max(ccf), color = 'blue', lw = 1, 
+    linestyle='--', label = 'highest +/- correlation')
+    ax.axhline(y = np.min(ccf), color = 'blue', lw = 1, 
+    linestyle='--')
+    ax.set(ylim = [-1, 1])
+    #ax.set_title('Cross Correlation', weight='bold', fontsize = 15)
+    ax.set_ylabel('Correlation Coefficients', weight='bold', 
+    fontsize = 8)
+    ax.set_xlabel('Time Lags', weight='bold', fontsize = 8)
+    #plt.legend()
+    #plt.show()
+    return ax
+
+
+coca_cola_data = {'data_identifyer': 'meetnagadia/coco-cola-stock-data-19622021',
+                  'temp_directory': 'examples/stockmarket_data',
+                  'zip_name': 'coco-cola-stock-data-19622021.zip',
+                  'file_name': 'COCO COLA.csv'}
+
+windows_data = {'data_identifyer': 'varpit94/google-stock-data',
+                  'temp_directory': 'examples/stockmarket_data',
+                  'zip_name': 'google-stock-data.zip',
+                  'file_name': 'GOOGL.csv'}
+
+ford_data = {'data_identifyer': 'varpit94/ford-stock-data',
+             'temp_directory': 'examples/stockmarket_data',
+             'zip_name': 'ford-stock-data.zip',
+             'file_name': 'F.csv'}
+
+
+
+    
+df_coca_cola = pd.read_csv(coca_cola_data['temp_directory']\
+                            + '/' + coca_cola_data['file_name'])
+df_windows = pd.read_csv(windows_data['temp_directory']\
+                            + '/' + windows_data['file_name'])
+df_ford = pd.read_csv(ford_data['temp_directory']\
+                            + '/' + ford_data['file_name'])
+
+df_coca_cola = pre_process_dataframes(df=df_coca_cola, time_column='Date')
+df_windows = pre_process_dataframes(df=df_windows, time_column='Date')
+df_ford = pre_process_dataframes(df=df_ford, time_column='Date')
+
+
+series = build_colinear_series(list=[df_coca_cola, df_windows, df_ford],
+                      names_list=['Date', 'coca_cola', 'windows', 'ford'],
+                      column_to_merge='Date', column_to_keep='diferences')
+
+series['coca_cola'] = series['coca_cola']/np.max(abs(series['coca_cola']))
+series['windows'] = series['windows']/np.max(abs(series['windows']))
+series['ford'] = series['ford']/np.max(abs(series['ford']))
+series_list = [list(series['coca_cola'].values), list(series['windows'].values),
+               list(series['ford'].values)]
+names_list = ['Coca cola', 'Windows', 'Ford']
+is_stationary(series_list=series_list, names_list=names_list,
+              detailed_data=False)
+#print(series[['coca_cola', 'windows', 'ford']].corr(method='pearson'))
+#print(series[['coca_cola', 'windows', 'ford']].corr(method='spearman'))
+
+def plot_correlations(series):
+    ccf_c_to_w, lags_c_to_w = cross_correlation_values(series['coca_cola'], series['windows'])
+    Min_c_to_w, Max_c_to_w = int(len(lags_c_to_w)/2) - 100, int(len(lags_c_to_w)/2) + 100
+    ccf_c_to_f, lags_c_to_f = cross_correlation_values(series['coca_cola'], series['ford'])
+    Min_c_to_f, Max_c_to_f = int(len(lags_c_to_f)/2) - 100, int(len(lags_c_to_f)/2) + 100
+    ccf_w_to_f, lags_w_to_f = cross_correlation_values(series['windows'], series['ford'])
+    Min_w_to_f, Max_w_to_f = int(len(lags_w_to_f)/2) - 100, int(len(lags_w_to_f)/2) + 100
+
+    fig, axs =plt.subplots(3, 1, figsize=(9, 6))
+    plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9,
+                        top=0.9, wspace=0.5, hspace=0.5)
+    axs[0] = ccf_plot(lags_c_to_w[Min_c_to_w: Max_c_to_w],
+                    ccf_c_to_w[Min_c_to_w: Max_c_to_w], ax=axs[0])
+    axs[0].set_title('Cross Correlation Coca cola versus Windows', weight='bold', fontsize = 10)
+    axs[1] = ccf_plot(lags_c_to_f[Min_c_to_f: Max_c_to_f],
+                    ccf_c_to_f[Min_c_to_f: Max_c_to_f], ax=axs[1])
+    axs[1].set_title('Cross Correlation Coca cola versus Ford', weight='bold', fontsize = 10)
+    axs[2] = ccf_plot(lags_w_to_f[Min_w_to_f: Max_w_to_f],
+                    ccf_w_to_f[Min_w_to_f: Max_w_to_f], ax=axs[2])
+    axs[2].set_title('Cross Correlation Windows versus Ford', weight='bold', fontsize = 10)
+    plt.show()
+
+freq, amp = sa.fourier_discreet_transform(data=list(series['windows'].values),
+                              sample_rate=1,
+                              duration=len(series['windows']))
+plt.plot(freq, amp)
+plt.show()
+nlm.lorentz_map(Signal=list(series['windows'].values), lag=1, plot=True)
+nlm.attractor_reconstructor(data=list(series['windows'].values),
+                            tau_to_use=None, how_many_plots=1,
+                            scatter=True, plot=True)
+#ccf_plot(lags[Min: Max], ccf[Min: Max])
+
+#special = np.where(ccf == np.max(ccf))
+#print(lags[special])
+
+
